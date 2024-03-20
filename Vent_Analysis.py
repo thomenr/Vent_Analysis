@@ -43,10 +43,12 @@ class Vent_Analysis:
         calculateCI - calculates CI (imports CI functions)
         process_RAW - process the corresponding TWIX file associated
     """
-    def __init__(self,dicom_path=None,mask_dir=None):
-        self.version = '240319_RPT' # - update this when changes are made!! - #
-        self.ds, self.HPvent = self.openSingleDICOM(dicom_path)
+    def __init__(self,xenon_path = None, mask_dir = None, proton_path = None):
+        self.version = '240320_RPT' # - update this when changes are made!! - #
+        self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
         self.pullDICOMHeader()
+        if proton_path is not None: self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
+        
         _, self.mask = self.openDICOMfolder(mask_dir)
         print(f'Opened DICOM of shape {self.HPvent.shape} and MASK of shape {self.mask.shape}')
         self.mask_border = self.calculateBorder(self.mask)
@@ -451,27 +453,28 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 ### ---------------------------------------- MAIN SCRIPT ------------------------------------------- ###
 ### ------------------------------------------------------------------------------------------------ ###
 
-image_box_size = 70
+image_box_size = 50
 if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
     import pickle
     version = '240319_RPT'
-    ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/H5/'
+    ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
-    path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Twix:')]]
-    path_column = [[sg.InputText(key='path1',default_text='C:/PIRL/data/MEPOXE0037/XENON',size=(200,200))],
-                   [sg.InputText(key='path2',default_text='C:/PIRL/data/MEPOXE0037/Mask',size=(200,200))],
-                   [sg.InputText(key='path3',default_text='C:/PIRL/data/MEPOXE0037/meas_MID00146_FID56770_6_FLASH_gre_hpg_2201_SliceThi_10.dat',size=(200,200))]]
+    path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Proton:')],[sg.Text('Path to Twix:')]]
+    path_column = [[sg.InputText(key='DICOMpath',default_text='C:/PIRL/data/MEPOXE0037/XENON',size=(200,200))],
+                   [sg.InputText(key='MASKpath',default_text='C:/PIRL/data/MEPOXE0037/Mask',size=(200,200))],
+                   [sg.InputText(key='PROTONpath',default_text='C:/PIRL/data/MEPOXE0037/Mask',size=(200,200))],
+                   [sg.InputText(key='TWIXpath',default_text='C:/PIRL/data/MEPOXE0037/meas_MID00146_FID56770_6_FLASH_gre_hpg_2201_SliceThi_10.dat',size=(200,200))]]
     
     IRB_select_column = [
                     [sg.Radio('GenXe','IRB',key='genxeRadio',enable_events=True)],
                     [sg.Radio('Mepo','IRB',key='mepoRadio',enable_events=True)],
                     [sg.Radio('Clinical','IRB',key='clinicalRadio',enable_events=True)]]
     genxe_info_column = [[sg.Text('General Xenon ID:'),sg.InputText(default_text='0000',size=(10,10),key='genxeID')],
-                           [sg.Checkbox('PreAlbuterol',default=False,key='prealb'),sg.Checkbox('PostAlbuterol',default=False,key='postalb')],
-                           [sg.Checkbox('PreSildenafil',default=False,key='presil'),sg.Checkbox('PostSildenafil',default=False,key='postsil')],
+                           [sg.Text('Disease:'),sg.Radio('Healthy','disease',key='diseaseHealthy'),sg.Radio('Asthma','disease',key='diseaseAsthma'),sg.Radio('CF','disease',key='diseaseCF'),sg.Radio('COPD','disease',key='diseaseCOPD'),sg.Radio('Other:','disease',key='diseaseOther'),sg.InputText(size=(10,1))],
+                           [sg.Checkbox('PreAlbuterol',default=False,key='prealb'),sg.Checkbox('PostAlbuterol',default=False,key='postalb'),sg.Checkbox('PreSildenafil',default=False,key='presil'),sg.Checkbox('PostSildenafil',default=False,key='postsil')],
                            ]
     mepo_info_column = [[sg.Text('Mepo ID:'),sg.InputText(default_text='0000',size=(10,10),key='mepoID')],
                         [sg.Text('Mepo Subject #:    '),sg.InputText(default_text='0',size=(10,10),key='meposubjectnumber')],
@@ -506,7 +509,8 @@ if __name__ == "__main__":
                          [sg.Text('Mask Lung Vol:',key='masklungvol',pad=(0,0))],
                          [sg.Text('Defect Volume:',key='defectvolume',pad=(0,0))],
                          [sg.Text('CI:',key='ci',pad=(0,0))]]
-    image_column = [[sg.Image(key='-RAWIMAGE-')],
+    image_column = [[sg.Image(key='-PROTONIMAGE-')],
+                    [sg.Image(key='-RAWIMAGE-')],
                     [sg.Image(key='-N4IMAGE-')],
                     [sg.Image(key='-DEFECTIMAGE-')],
                     [sg.Image(key='-TWIXIMAGE-')]]
@@ -531,7 +535,7 @@ if __name__ == "__main__":
 
     window = sg.Window(f'PIRL Ventilation Analysis -- {version}', layout, return_keyboard_events=True, margins=(0, 0), finalize=True, size= (1200,730))
 
-    
+    window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
     window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
     window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
     window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
@@ -547,12 +551,14 @@ if __name__ == "__main__":
 ## --------------- PLUS MINUS BUTTONS --------------------------- ##
         elif event == ('minus'):
             image_box_size = image_box_size-5
+            window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
         elif event == ('plus'):
             image_box_size = image_box_size+5
+            window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
@@ -580,9 +586,9 @@ if __name__ == "__main__":
 
 ## --------------- INITIALIZE Button ------------------- ##
         elif event == ('-INITIALIZE-'):
-            DICOM_path = values['path1']
-            MASK_path = values['path2']
-            TWIX_path = values['path3']
+            DICOM_path = values['DICOMpath']
+            MASK_path = values['MASKpath']
+            TWIX_path = values['TWIXpath']
             window['-CALCVDP-'].update(button_color = 'lightgray')
             window['-CALCCI-'].update(button_color = 'lightgray')
             window['-RUNTWIX-'].update(button_color = 'lightgray')
@@ -627,7 +633,9 @@ if __name__ == "__main__":
                 window['weight'].update(f'Weight: {Vent1.PatientWeight} [kg]')
                 window['vox'].update(f'DICOM voxel Size: {Vent1.vox} [mm]')
                 rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
-                rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
+                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
+                rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
+                #rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
                 window['-RAWIMAGE-'].update(data=rawMontageImage)
             except:
                 window['-STATUS-'].update("ERROR: Uhh you messed something up. Maybe check your DICOM and MASK paths?",text_color='red')
@@ -671,7 +679,7 @@ if __name__ == "__main__":
 ## --------------- RUN TWIX Button ------------------- ##
         elif event == ('-RUNTWIX-'):
             try:
-                TWIX_path = values['path3']
+                TWIX_path = values['TWIXpath']
                 window['-STATUS-'].update("Processing TWIX file...",text_color='blue')
                 Vent1.process_RAW(TWIX_path)
                 window['-STATUS-'].update("TWIX Processed successfully",text_color='green')
@@ -779,15 +787,14 @@ if __name__ == "__main__":
                 pickle.dump(data_to_pickle, file)
             window['-STATUS-'].update("Data Successfully Exported...",text_color='green')
 
-            # if values['-ARCHIVE-'] == True:
-            #     print('Archiving...')
-            #     if archive_flag := os.path.isdir(ARCHIVE_path):
-            #         with open(os.path.join(EXPORT_path, f'{fileName}.pkl'), 'wb') as file:
-            #             pickle.dump(data_to_pickle, file)
-            #         window['-STATUS-'].update("Data Successfully Exported and Archived...",text_color='green')
-            #     elif:
-            #         window['-STATUS-'].update("Data Successfully Exported but not Archived...",text_color='orange')
-            #         print("Cant Archive because the path doesn't exist...")
+            if values['-ARCHIVE-'] == True:
+                if os.path.isdir(ARCHIVE_path):
+                    with open(os.path.join(ARCHIVE_path, f'{fileName}.pkl'), 'wb') as file:
+                        pickle.dump(data_to_pickle, file)
+                    window['-STATUS-'].update("Data Successfully Exported and Archived...",text_color='green')
+                else:
+                    window['-STATUS-'].update("Data Successfully Exported but not Archived...",text_color='orange')
+                    print("Cant Archive because the path doesn't exist...")
             
 
             
