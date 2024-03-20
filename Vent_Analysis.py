@@ -159,15 +159,15 @@ class Vent_Analysis:
         try:
             dataArray[:,:,:,2] = self.N4HPvent
         except:
-            print('\033[31mN4HPvent does not exist and was not added\033[37m')
+            print('\033[33mN4HPvent does not exist and was not added to 4D array\033[37m')
         try:
             dataArray[:,:,:,3] = self.defectArray
         except:
-            print('\033[31mdefectArray does not exist and was not added\033[37m')
+            print('\033[33mdefectArray does not exist and was not added to 4D array\033[37m')
         try:
             dataArray[:,:,:,4] = self.CIarray
         except:
-            print('\033[31mCIarray does not exist and was not added\033[37m')
+            print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
     
     def buildMetadata(self):
@@ -455,7 +455,7 @@ image_box_size = 70
 if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
-    import h5py
+    import pickle
     version = '240319_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/H5/'
     sg.theme('Default1')
@@ -687,6 +687,11 @@ if __name__ == "__main__":
 
 ## --------------- EXPORT Button ------------------- ##
         elif event == ('-EXPORT-'):
+            '''Here we'll save 3 important things: the 4D data arrays, one of the DICOM datasets and one of the TWIX datasets,
+            and all the many single variable inputs/outputs such as patient name, study ID, scan date/time, etc. To do this, we'll
+            pickle everything in a single all-in-one file to be saved in the specified path and if desired in a static 'archive path, 
+            and separately we'll save the arrays as Nifti's and full headers for TWIX as JSON files.'''
+
             window['-STATUS-'].update("Exporting Data...",text_color='blue')
             EXPORT_path = values['exportpath']
             errorMarker = []
@@ -696,7 +701,7 @@ if __name__ == "__main__":
                 window['-STATUS-'].update("Don't forget to enter your Name or Initials at the very top right!...",text_color='red')
                 continue
 
-            # Create the fileName from Input Data
+            # Create the fileName and declare variables from from Input Data
             treatment = 'none'
             visit = '0'
             if values['genxeRadio']:
@@ -724,19 +729,9 @@ if __name__ == "__main__":
             if not os.path.isdir(EXPORT_path):
                 os.makedirs(EXPORT_path)
 
-            hf = h5py.File(os.path.join(EXPORT_path,fileName),'w')
-            archive_flag = False
-            if values['-ARCHIVE-'] == True:
-                print('Archiving')
-                archive_flag = os.path.isdir(ARCHIVE_path)
-                if(not archive_flag): 
-                    print('\033[33mArchive path does not exist, and so data will not be archived\033[37m')
-                else:
-                    ha = h5py.File(os.path.join(ARCHIVE_path,fileName),'w')
-            
-
-            # 1 - build the METADATA into the h5
+            # 1 - build the METADATA as a dictionary 'metadata'
             try:
+                window['-STATUS-'].update("Building Metadata...",text_color='blue')
                 print('\033[34mBuilding Metadata into h5..\033[37m')
                 metadata = Vent1.buildMetadata()
                 metadata['visit'] = visit
@@ -746,55 +741,29 @@ if __name__ == "__main__":
                 metadata['FEV1'] = values['FEV1']
                 metadata['FVC'] = values['FVC']
                 metadata['IRB'] = IRB
-                metadata['SNR'] = str(Vent1.SNR)
-                metadata['VDP'] = str(Vent1.VDP)
+                metadata['SNR'] = Vent1.SNR
+                metadata['VDP'] = Vent1.VDP
                 metadata['LungVolume'] = str(np.round(np.sum(Vent1.mask>0)*np.prod(Vent1.vox)/1000/1000,1))
                 metadata['DefectVolume'] = str(np.round(np.sum(Vent1.defectArray>0)*np.prod(Vent1.vox)/1000/1000,1))
             except:
                 print('\033[31mError at building metadata...\033[37m')
+
             try:
                 metadata['CI'] = str(Vent1.CI)
             except:
                 print('\033[33mNoCI to add...\033[37m')
-            try:
-                hf.attrs.update(metadata)
-                if archive_flag: ha.attrs.update(metadata)
-            except:
-                print('\033[31mError at building metadata...\033[37m')
-                errorMarker = np.append(errorMarker,1)
 
-            # 2 - build the 4D data arrays and add to h5
-            try:
-                print('\033[34mBuilding 4D dataArrays and adding to h5...\033[37m')
-                hf.create_dataset('dataArray',data = Vent1.build4DdataArray())
-                if archive_flag: ha.create_dataset('dataArray',data = Vent1.build4DdataArray())
-            except:
-                errorMarker = np.append(errorMarker,2)
-                print('\033[31mError building 4D arrays...\033[37m')
 
+            # 2 - build the 4D data arrays into 'dataArray' for DICOM data and 'twixArray' for twix data
+            dataArray = Vent1.build4DdataArray()
+            twixArray = np.zeros((Vent1.raw_HPvent.shape[0],Vent1.raw_HPvent.shape[1],Vent1.raw_HPvent.shape[2],2)).astype(np.complex128)
+            twixArray[:,:,:,0] = Vent1.raw_HPvent
+            twixArray[:,:,:,1] = np.transpose(Vent1.raw_K,(1,0,2))
+                
             # 3 - Export the 4D dataArray as a Nifti
-            try:
-                print('\033[34mExporting 4D arrays as Niftis...\033[37m')
-                Vent1.exportNifti(EXPORT_path,fileName)
-            except:
-                errorMarker = np.append(errorMarker,3)
-                print('\033[31mError exporing 4D arrays as Nifits...\033[37m')
+            Vent1.exportNifti(EXPORT_path,fileName)
 
-            # 4 - build and add the twixArray to H5
-            try:
-                print('\033[34mExporting TWIX arrays as Niftis...\033[37m')
-                twixArray = np.zeros((Vent1.raw_HPvent.shape[0],Vent1.raw_HPvent.shape[1],Vent1.raw_HPvent.shape[2],2)).astype(np.complex128)
-                twixArray[:,:,:,0] = Vent1.raw_HPvent
-                twixArray[:,:,:,1] = np.transpose(Vent1.raw_K,(1,0,2))
-                hf.create_dataset('twixArrayReal',data = np.real(twixArray))
-                hf.create_dataset('twixArrayImag',data = np.imag(twixArray))
-                if archive_flag: ha.create_dataset('twixArrayReal',data = np.real(twixArray)) 
-                if archive_flag: ha.create_dataset('twixArrayImag',data = np.imag(twixArray)) 
-            except:
-                errorMarker = np.append(errorMarker,4)
-                print('\033[31mError exporting TWIX as Niftis...\033[37m')
-
-            # 5 - Save TWIX Header to JSON
+            # 4 - Save TWIX Header to JSON
             try:
                 twix_header = Vent1.raw_twix
                 del twix_header['image']
@@ -802,22 +771,27 @@ if __name__ == "__main__":
                     json.dump(extract_attributes(twix_header), fp,indent=2)
             except:
                 errorMarker = np.append(errorMarker,5)
-                print('\033[31mError saving JSON header...\033[37m')
+                print('\033[31mError saving JSON header. Was the TWIX processed?...\033[37m')
 
-            # Report which errors occured to the GUI
-            if len(errorMarker) == 0:
-                window['-STATUS-'].update("Data Exported successfully!",text_color='green')
-                window['-EXPORT-'].update(button_color = 'green')
-            else:
-                window['-STATUS-'].update(f"Error markers {errorMarker} were flagged",text_color='red')
+            # 5 - Pickle and save the data!
+            data_to_pickle = (dataArray,twixArray,metadata)
+            with open(os.path.join(EXPORT_path, f'{fileName}.pkl'), 'wb') as file:
+                pickle.dump(data_to_pickle, file)
+            window['-STATUS-'].update("Data Successfully Exported...",text_color='green')
 
-            hf.close()
-            if values['-ARCHIVE-'] == True:
-                ha = hf
-                ha.close()
-                print('Archived')
+            # if values['-ARCHIVE-'] == True:
+            #     print('Archiving...')
+            #     if archive_flag := os.path.isdir(ARCHIVE_path):
+            #         with open(os.path.join(EXPORT_path, f'{fileName}.pkl'), 'wb') as file:
+            #             pickle.dump(data_to_pickle, file)
+            #         window['-STATUS-'].update("Data Successfully Exported and Archived...",text_color='green')
+            #     elif:
+            #         window['-STATUS-'].update("Data Successfully Exported but not Archived...",text_color='orange')
+            #         print("Cant Archive because the path doesn't exist...")
+            
 
-hf.close()
+            
+
 
 
 
