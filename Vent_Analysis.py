@@ -531,11 +531,11 @@ if __name__ == "__main__":
 
     window = sg.Window(f'PIRL Ventilation Analysis -- {version}', layout, return_keyboard_events=True, margins=(0, 0), finalize=True, size= (1200,730))
 
-    rawMontage = np.zeros((3,3)); N4Montage = np.zeros((3,3)); DefectMontage = np.zeros((3,3)); TwixMontage = np.zeros((3,3));
-    window['-RAWIMAGE-'].update(data=arrayToImage(rawMontage,(1000,image_box_size)))
-    window['-N4IMAGE-'].update(data=arrayToImage(N4Montage,(1000,image_box_size)))
-    window['-DEFECTIMAGE-'].update(data=arrayToImage(DefectMontage,(1000,image_box_size)))
-    window['-TWIXIMAGE-'].update(data=arrayToImage(TwixMontage,(1000,image_box_size)))
+    
+    window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+    window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+    window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+    window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
 
     while True:
         event, values = window.read()
@@ -547,24 +547,16 @@ if __name__ == "__main__":
 ## --------------- PLUS MINUS BUTTONS --------------------------- ##
         elif event == ('minus'):
             image_box_size = image_box_size-5
-            rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
-            N4MontageImage = arrayToImage(colorBinary(N4Montage,mask_border),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
-            DefectMontageImage = arrayToImage(colorBinary(N4Montage,DefectMontage),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
-            TwixMontageImage = arrayToImage(255*normalize(TwixMontage),(int(image_box_size*TwixMontage.shape[1]/TwixMontage.shape[0]),image_box_size))
-            window['-RAWIMAGE-'].update(data=rawMontageImage)
-            window['-N4IMAGE-'].update(data=N4MontageImage)
-            window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
-            window['-TWIXIMAGE-'].update(data=TwixMontageImage)
+            window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
         elif event == ('plus'):
-            rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
-            N4MontageImage = arrayToImage(colorBinary(N4Montage,mask_border),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
-            DefectMontageImage = arrayToImage(colorBinary(N4Montage,DefectMontage),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
-            TwixMontageImage = arrayToImage(255*normalize(TwixMontage),(int(image_box_size*TwixMontage.shape[1]/TwixMontage.shape[0]),image_box_size))
             image_box_size = image_box_size+5
-            window['-RAWIMAGE-'].update(data=rawMontageImage)
-            window['-N4IMAGE-'].update(data=N4MontageImage)
-            window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
-            window['-TWIXIMAGE-'].update(data=TwixMontageImage)
+            window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
 
 ## --------------- STUDY SELECT RADIO BUTTONS ------------------- ##
         elif event == ('mepoRadio'):
