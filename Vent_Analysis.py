@@ -48,7 +48,7 @@ class Vent_Analysis:
         self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
         self.pullDICOMHeader()
         if proton_path is not None: self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
-        
+
         _, self.mask = self.openDICOMfolder(mask_dir)
         print(f'Opened DICOM of shape {self.HPvent.shape} and MASK of shape {self.mask.shape}')
         self.mask_border = self.calculateBorder(self.mask)
@@ -458,7 +458,7 @@ if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
     import pickle
-    version = '240319_RPT'
+    version = '240320_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
