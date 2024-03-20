@@ -531,14 +531,11 @@ if __name__ == "__main__":
 
     window = sg.Window(f'PIRL Ventilation Analysis -- {version}', layout, return_keyboard_events=True, margins=(0, 0), finalize=True, size= (1200,730))
 
-    rawMontageImage = arrayToImage(np.zeros((3,3)),(1000,image_box_size))
-    N4MontageImage = arrayToImage(np.zeros((3,3)),(1000,image_box_size))
-    DefectMontageImage = arrayToImage(np.zeros((3,3)),(1000,image_box_size))
-    TwixMontageImage = arrayToImage(np.zeros((3,3)),(1000,image_box_size))
-    window['-RAWIMAGE-'].update(data=rawMontageImage)
-    window['-N4IMAGE-'].update(data=N4MontageImage)
-    window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
-    window['-TWIXIMAGE-'].update(data=TwixMontageImage)
+    rawMontage = np.zeros((3,3)); N4Montage = np.zeros((3,3)); DefectMontage = np.zeros((3,3)); TwixMontage = np.zeros((3,3));
+    window['-RAWIMAGE-'].update(data=arrayToImage(rawMontage,(1000,image_box_size)))
+    window['-N4IMAGE-'].update(data=arrayToImage(N4Montage,(1000,image_box_size)))
+    window['-DEFECTIMAGE-'].update(data=arrayToImage(DefectMontage,(1000,image_box_size)))
+    window['-TWIXIMAGE-'].update(data=arrayToImage(TwixMontage,(1000,image_box_size)))
 
     while True:
         event, values = window.read()
