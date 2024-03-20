@@ -1,3 +1,4 @@
+## -- PIRL Ventilation Image Analysis Pipeline, RPT, 3/19/2024, version 240319_RPT -- ##
 import numpy as np
 import os
 from scipy.signal import medfilt2d # ------ for calculateVDP
@@ -5,7 +6,6 @@ import time # ----------------------------- for calculateVDP
 import SimpleITK as sitk # ---------------- for N4 Bias Correection
 import CI # ------------------------------- for calculateCI
 import mapvbvd # -------------------------- for process_Raw
-import HPG as hpg # ----------------------- for getSubArray in calculateSNR (not used in GUI)
 from sys import getsizeof # --------------- To report twix object size
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
