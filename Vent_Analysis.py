@@ -15,6 +15,7 @@ import skimage.util # --------------------- for image montages
 import nibabel as nib # ------------------- for Nifti stuffs
 import PySimpleGUI as sg # ---------------- for GUI stuffs
 from PIL import Image, ImageTk # ---------- for arrayToImage conversion
+from datetime import date # --------------- So we can export the analysis date
 
 #------------------------------------------------------------------------------------
 # ----------- VENTILATION ANALYSIS CLASS DEFINITION ---------------------------------
@@ -47,8 +48,8 @@ class Vent_Analysis:
         self.version = '240320_RPT' # - update this when changes are made!! - #
         self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
         self.pullDICOMHeader()
-        if proton_path is not None: self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
-
+        if proton_path is not None: 
+            self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
         _, self.mask = self.openDICOMfolder(mask_dir)
         print(f'Opened DICOM of shape {self.HPvent.shape} and MASK of shape {self.mask.shape}')
         self.mask_border = self.calculateBorder(self.mask)
@@ -63,10 +64,10 @@ class Vent_Analysis:
             ds = dicom.dcmread(dicom_path,force=True)
         else:
             ds = dicom.dcmread(dicom_path)
-        HPvent = ds.pixel_array
-        HPvent = np.transpose(HPvent,(1,2,0))
-        print(f'\033[94mI opened a DICOM of shape {HPvent.shape}\033[37m')
-        return ds, HPvent
+        DICOM_array = ds.pixel_array
+        DICOM_array = np.transpose(DICOM_array,(1,2,0))
+        print(f'\033[94mI opened a DICOM of shape {DICOM_array.shape}\033[37m')
+        return ds, DICOM_array
 
 
     def openDICOMfolder(self,maskFolder):  
@@ -117,7 +118,7 @@ class Vent_Analysis:
         return border
 
     def runVDP(self):
-        self.SNR = self.calculate_SNR(self.HPvent,self.mask) ## -- SNR of DICOM HP, not Raw, nor N4
+        self.SNR = self.calculate_SNR(self.HPvent,self.mask) ## -- SNR of xenon DICOM images, not Raw, nor N4
         self.N4HPvent = self.N4_bias_correction(self.HPvent,self.mask)
         self.normMeanHPvent  = self.normalize_mean(self.N4HPvent,self.mask)
         self.norm95HPvent = self.normalize_95th(self.N4HPvent,self.mask)
@@ -171,7 +172,7 @@ class Vent_Analysis:
         except:
             print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
-    
+            
     def buildMetadata(self):
         metadata = {
             'version': str(self.version),
@@ -197,13 +198,9 @@ class Vent_Analysis:
         if filepath == None:
             print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
             filepath = tk.filedialog.askopenfilename()
-    
         self.raw_twix = mapvbvd.mapVBVD(filepath)
-        #self.subjectID = self.raw_twix.hdr.Config['PatientID']
         self.scanDateTime = self.raw_twix.hdr.Config['PrepareTimestamp']
         self.protocolName = self.raw_twix.hdr.Meas['tProtocolName']
-        # self.age = self.raw_twix.hdr.Protocol['flPatientAge']
-        # self.sex = self.raw_twix.hdr.Protocol['lPatientSex']
         self.raw_twix.image.squeeze = True
         self.raw_K = self.raw_twix.image['']
         self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
@@ -279,37 +276,72 @@ class Vent_Analysis:
         plt.show()
 
     def array3D_to_montage2D(self,A):
-        #print(f'Array 3D to montage 2D called with array of shape {A.shape}...')
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
 
-    def crop_to_data(self, A, border=0):
-        '''Not working currently, not sure why (240308_RPT)'''
-        rr = np.where(np.sum(A, axis=1) > 0)[0] + 1
-        cc = np.where(np.sum(A, axis=2) > 0)[0] + 1
-        ss = np.where(np.sum(A, axis=0) > 0)[0] + 1
-        print('---------------------------------------------------WHERE MASK SUM IS > 0 ---------------------------------')
-        print(rr)
-        print(cc)
-        print(ss)
+    def cropToData(self, A, border=0,borderSlices=False):
+        # Calculate the indices for non-zero slices, rows, and columns
+        slices = np.multiply(np.sum(np.sum(A,axis=0),axis=0)>0,list(range(0,A.shape[2])))
+        rows = np.multiply(np.sum(np.sum(A,axis=1),axis=1)>0,list(range(0,A.shape[0])))
+        cols = np.multiply(np.sum(np.sum(A,axis=2),axis=0)>0,list(range(0,A.shape[1])))
+        
+        # Filter out the indices for non-zero slices, rows, and columns
+        slices = [x for x in range(0,A.shape[2]) if slices[x]]
+        rows = [x for x in range(0,A.shape[0]) if rows[x]]
+        cols = [x for x in range(0,A.shape[1]) if cols[x]]
+        
+        # Add border, ensuring we don't exceed the array's original dimensions
+        if borderSlices:
+            slices_start = max(slices[0] - border, 0)
+            slices_end = min(slices[-1] + border + 1, A.shape[2])
+        else:
+            slices_start = max(slices[0] , 0)
+            slices_end = min(slices[-1] + 1, A.shape[2])
+        rows_start = max(rows[0] - border, 0)
+        rows_end = min(rows[-1] + border + 1, A.shape[0])
+        cols_start = max(cols[0] - border, 0)
+        cols_end = min(cols[-1] + border + 1, A.shape[1])
+        
+        # Crop the array with the adjusted indices
+        cropped_A = A[rows_start:rows_end, cols_start:cols_end, slices_start:slices_end]
+        
+        
+        return cropped_A, list(range(rows_start, rows_end)), list(range(cols_start, cols_end)), list(range(slices_start, slices_end))
 
-        if border > 0:
-            for _ in range(border):
-                rr = np.concatenate(([np.min(rr) - 1], rr, [np.max(rr) + 1]))
-                cc = np.concatenate(([np.min(cc) - 1], cc, [np.max(cc) + 1]))
+    def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
+        A = Vent1.build4DdataArray()
+        _,rr,cc,ss = self.cropToData(A[:,:,:,1],border = 2)
+        A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
+        if normalize95:
+            signalList = A[:,:,:,0].flatten()
+            signalList.sort()
+            A[:,:,:,0] = np.divide(A[:,:,:,0],signalList[int(len(signalList)*0.99)])
+            A[:,:,:,0][A[:,:,:,0]>1] = 1
+        A[:,:,:,0] = normalize(A[:,:,:,0])
+        A[:,:,:,1] = normalize(A[:,:,:,1])
+        A[:,:,:,2] = normalize(A[:,:,:,2])
+        A[:,:,:,3] = normalize(A[:,:,:,3])
+        mask_border = Vent1.mask_border[np.ix_(rr,cc,ss)]
+        rr = A.shape[0]
+        cc = A.shape[1]
+        ss = A.shape[2]
+        imageArray = np.zeros((rr*5,cc*ss,3))
+        for s in range(ss):
+            imageArray[0:rr,(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]
+            imageArray[0:rr,(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]
+            imageArray[0:rr,(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]
 
-        print('---------------------------------------------------REMOVE values greater than ---------------------------------')
-        rr = rr[(rr > 0) & (rr < A.shape[0])]
-        cc = cc[(cc > 0) & (cc < A.shape[1])]
-        ss = ss[(ss > 0) & (ss < A.shape[2])]
-        print('---')
-        print(rr)
-        print(cc)
-        print(ss)
-        A = A[rr-1, cc-1, ss-1]
-        print('Calculated A using rr,cc,ss')
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,2]
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,2]
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,2]
 
-        return {"A": A, "rr": rr, "cc": cc, "ss": ss}
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,2]*(1-mask_border[:,:,s])
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,2]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,2]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
             
+            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,2]*(1-A[:,:,s,3]) + A[:,:,s,3]
+            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,2]*(1-A[:,:,s,3])
+            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,2]*(1-A[:,:,s,3])
+        plt.imsave(path, imageArray, cmap='gray')
             
     def __str__(self) -> str:
         '''What do you want the class to print for you when you check it? Add that here!'''
@@ -463,10 +495,10 @@ if __name__ == "__main__":
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
     path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Proton:')],[sg.Text('Path to Twix:')]]
-    path_column = [[sg.InputText(key='DICOMpath',default_text='C:/PIRL/data/MEPOXE0037/XENON',size=(200,200))],
-                   [sg.InputText(key='MASKpath',default_text='C:/PIRL/data/MEPOXE0037/Mask',size=(200,200))],
-                   [sg.InputText(key='PROTONpath',default_text='C:/PIRL/data/MEPOXE0037/Mask',size=(200,200))],
-                   [sg.InputText(key='TWIXpath',default_text='C:/PIRL/data/MEPOXE0037/meas_MID00146_FID56770_6_FLASH_gre_hpg_2201_SliceThi_10.dat',size=(200,200))]]
+    path_column = [[sg.InputText(key='DICOMpath',default_text='C:/PIRL/data/MEPOXE0039/48522586xe',size=(200,200))],
+                   [sg.InputText(key='MASKpath',default_text='C:/PIRL/data/MEPOXE0039/Mask',size=(200,200))],
+                   [sg.InputText(key='PROTONpath',default_text='C:/PIRL/data/MEPOXE0039/48522597prot',size=(200,200))],
+                   [sg.InputText(key='TWIXpath',default_text='C:/PIRL/data/MEPOXE0039/meas_MID00077_FID58046_6_FLASH_gre_hpg_2201_SliceThi_10.dat',size=(200,200))]]
     
     IRB_select_column = [
                     [sg.Radio('GenXe','IRB',key='genxeRadio',enable_events=True)],
@@ -529,7 +561,7 @@ if __name__ == "__main__":
         [sg.HorizontalSeparator()],
         [sg.Column(patient_data_column),sg.VSeperator(),sg.Column(dicom_data_column),sg.VSeperator(),sg.Column(image_column)],  
         [sg.Text('',key = '-STATUS-')],
-        [sg.InputText(key='exportpath',default_text='C:/PIRL/data/MEPOXE0037/',size=(200,200))],
+        [sg.InputText(key='exportpath',default_text='C:/PIRL/data/MEPOXE0039/',size=(200,200))],
         [sg.Button('Export Data',key='-EXPORT-'),sg.Checkbox('Copy H5 to Archive',default=True,key='-ARCHIVE-')]
     ]
 
@@ -589,6 +621,7 @@ if __name__ == "__main__":
             DICOM_path = values['DICOMpath']
             MASK_path = values['MASKpath']
             TWIX_path = values['TWIXpath']
+            PROTON_path = values['PROTONpath']
             window['-CALCVDP-'].update(button_color = 'lightgray')
             window['-CALCCI-'].update(button_color = 'lightgray')
             window['-RUNTWIX-'].update(button_color = 'lightgray')
@@ -620,7 +653,13 @@ if __name__ == "__main__":
             except:
                 print('cache already clean')
             try:
-                Vent1 = Vent_Analysis(DICOM_path,MASK_path)
+                if PROTON_path == '':
+                    Vent1 = Vent_Analysis(DICOM_path,MASK_path)
+                else:
+                    Vent1 = Vent_Analysis(DICOM_path,MASK_path,PROTON_path)
+                    protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
+                    protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))
+                    window['-PROTONIMAGE-'].update(data=protonMontageImage)
                 window['-STATUS-'].update("Vent_Analysis loaded",text_color='green')
                 window['-INITIALIZE-'].update(button_color = 'green')
                 window['subject'].update(f'Subject: {Vent1.PatientName}')
@@ -700,13 +739,21 @@ if __name__ == "__main__":
             pickle everything in a single all-in-one file to be saved in the specified path and if desired in a static 'archive path, 
             and separately we'll save the arrays as Nifti's and full headers for TWIX as JSON files.'''
 
-            window['-STATUS-'].update("Exporting Data...",text_color='blue')
-            EXPORT_path = values['exportpath']
-            errorMarker = []
-
             # Did the user input their name??
             if values['userName'] == '':
                 window['-STATUS-'].update("Don't forget to enter your Name or Initials at the very top right!...",text_color='red')
+                continue
+
+            window['-STATUS-'].update("Exporting Data...",text_color='blue')
+            today = date.today().strftime("%y%m%d")
+            user = values['userName']
+            targetPath = f'VentAnalysis_{user}_{today}/'
+            EXPORT_path = os.path.join(values['exportpath'],targetPath)
+            errorMarker = []
+
+            # Did the user input their name??
+            if not values['genxeRadio'] and not values['mepoRadio'] and values['clinicalRadio']:
+                window['-STATUS-'].update("Don't forget to select an IRB!...",text_color='red')
                 continue
 
             # Create the fileName and declare variables from from Input Data
@@ -795,9 +842,12 @@ if __name__ == "__main__":
                 else:
                     window['-STATUS-'].update("Data Successfully Exported but not Archived...",text_color='orange')
                     print("Cant Archive because the path doesn't exist...")
+
+            #6 - save a screenshot
+            Vent1.screenShot(path=f'{EXPORT_path}_{fileName}.png')
             
 
-            
+
 
 
 
