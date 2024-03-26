@@ -725,7 +725,7 @@ if __name__ == "__main__":
             try:
                 window['-STATUS-'].update("Calculating CI...",text_color='blue')
                 Vent1.calculate_CI()
-                window['ci'].update(f'CI: {np.round(Vent1.CI,1)}')
+                window['ci'].update(f'CI: {np.round(Vent1.CI,1)} [%]')
                 window['-STATUS-'].update("CI Calculated successfully",text_color='green')
                 window['-CALCCI-'].update(button_color = 'green')
             except:
@@ -882,7 +882,13 @@ if __name__ == "__main__":
             # 4 - Save TWIX Header to JSON
             try:
                 twix_header = Vent1.raw_twix
+            except:
+                print('Could not load the twix header')
+            try:
                 del twix_header['image']
+            except:
+                print('No Twix image to delete from header')
+            try:
                 with open(os.path.join(EXPORT_path,f'{fileName}_TWIXHEADER.json'), 'w') as fp:
                     json.dump(extract_attributes(twix_header), fp,indent=2)
             except:
