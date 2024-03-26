@@ -45,15 +45,13 @@ class Vent_Analysis:
         process_RAW - process the corresponding TWIX file associated
     """
     def __init__(self,xenon_path = None, mask_dir = None, proton_path = None):
-        self.version = '240320_RPT' # - update this when changes are made!! - #
+        self.version = '240325_RPT' # - update this when changes are made!! - #
         self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
         self.pullDICOMHeader()
         if proton_path is not None: 
             self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
         _, self.mask = self.openDICOMfolder(mask_dir)
-        print(f'Opened DICOM of shape {self.HPvent.shape} and MASK of shape {self.mask.shape}')
         self.mask_border = self.calculateBorder(self.mask)
-        print(f'Calculated mask_border of shape {self.mask_border.shape}')
 
     def openSingleDICOM(self,dicom_path):        
         if dicom_path is None:
@@ -145,30 +143,34 @@ class Vent_Analysis:
             niImage = nib.Nifti1Image(dataArray, affine=np.eye(4))
             nib.save(niImage,os.path.join(filepath,fileName + '_dataArray.nii'))
         except:
-            print('\033[31mCould not build 4D HPvent mask Nifti\033[37m')
+            print('\033[31mCould not Export 4D HPvent mask Nifti...\033[37m')
 
         try:
             niImage = nib.Nifti1Image(self.raw_HPvent, affine=np.eye(4))
             nib.save(niImage,os.path.join(filepath,fileName + '_raw_HPvent.nii'))
             print('\033[92mraw_HPvent Nifti saved\033[37m')
         except:
-            print('\033[31mNifti Export of raw_HPvent failed\033[37m')
+            print('\033[31mNCould not Export 4D raw_HPvent Nifti...\033[37m')
 
     def build4DdataArray(self):
         ''' Our arrays are: HPvent [0], mask  [1], N4HPvent [2], defectArray [3], CIarray [4]'''
-        dataArray = np.zeros((self.HPvent.shape[0],self.HPvent.shape[1],self.HPvent.shape[2],5))
-        dataArray[:,:,:,0] = self.HPvent
-        dataArray[:,:,:,1] = self.mask
+        dataArray = np.zeros((self.HPvent.shape[0],self.HPvent.shape[1],self.HPvent.shape[2],6))
         try:
-            dataArray[:,:,:,2] = self.N4HPvent
+            dataArray[:,:,:,0] = self.proton
+        except:
+            print('\033[33mProton either does not exist or does not match Xenon array shape and was not added to 4D array\033[37m')
+        dataArray[:,:,:,1] = self.HPvent
+        dataArray[:,:,:,2] = self.mask
+        try:
+            dataArray[:,:,:,3] = self.N4HPvent
         except:
             print('\033[33mN4HPvent does not exist and was not added to 4D array\033[37m')
         try:
-            dataArray[:,:,:,3] = self.defectArray
+            dataArray[:,:,:,4] = self.defectArray
         except:
             print('\033[33mdefectArray does not exist and was not added to 4D array\033[37m')
         try:
-            dataArray[:,:,:,4] = self.CIarray
+            dataArray[:,:,:,5] = self.CIarray
         except:
             print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
@@ -248,8 +250,9 @@ class Vent_Analysis:
             noisemask[(noisemask.shape[0]-FOVbuffer):,:,:] = 0
             noise = A[noisemask==1]
         else:
-            sub_array = hpg.get_subarray(self.HPvent[:,:,int(self.HPvent.shape[2]/2)])
-            noise = sub_array['A'].flatten()
+            pass
+            #sub_array = hpg.get_subarray(self.HPvent[:,:,int(self.HPvent.shape[2]/2)])
+            #noise = sub_array['A'].flatten()
         SNR = (np.mean(signal)-np.mean(noise))/np.std(noise)
         self.SNR = SNR
         return SNR
@@ -309,38 +312,48 @@ class Vent_Analysis:
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
         A = Vent1.build4DdataArray()
-        _,rr,cc,ss = self.cropToData(A[:,:,:,1],border = 2)
+        _,rr,cc,ss = self.cropToData(A[:,:,:,2],border = 5)
         A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
+        A[:,:,:,0] = normalize(A[:,:,:,0]) # -- proton
         if normalize95:
-            signalList = A[:,:,:,0].flatten()
+            signalList = A[:,:,:,1].flatten()
             signalList.sort()
-            A[:,:,:,0] = np.divide(A[:,:,:,0],signalList[int(len(signalList)*0.99)])
-            A[:,:,:,0][A[:,:,:,0]>1] = 1
-        A[:,:,:,0] = normalize(A[:,:,:,0])
-        A[:,:,:,1] = normalize(A[:,:,:,1])
-        A[:,:,:,2] = normalize(A[:,:,:,2])
-        A[:,:,:,3] = normalize(A[:,:,:,3])
+            A[:,:,:,1] = np.divide(A[:,:,:,1],signalList[int(len(signalList)*0.99)])
+            A[:,:,:,1][A[:,:,:,1]>1] = 1
+        A[:,:,:,1] = normalize(A[:,:,:,1]) # -- raw xenon
+        A[:,:,:,2] = normalize(A[:,:,:,2]) # -- mask
+        A[:,:,:,3] = normalize(A[:,:,:,3]) # -- N4 xenon
+        A[:,:,:,4] = normalize(A[:,:,:,4]) # -- defectArray
         mask_border = Vent1.mask_border[np.ix_(rr,cc,ss)]
         rr = A.shape[0]
         cc = A.shape[1]
         ss = A.shape[2]
         imageArray = np.zeros((rr*5,cc*ss,3))
         for s in range(ss):
+            # -- proton
             imageArray[0:rr,(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]
             imageArray[0:rr,(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]
             imageArray[0:rr,(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]
 
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,2]
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,2]
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,2]
+            # -- raw xenon
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,1]
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,1]
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,1]
 
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,2]*(1-mask_border[:,:,s])
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,2]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,2]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
+            # -- N4 xenon
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]
             
-            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,2]*(1-A[:,:,s,3]) + A[:,:,s,3]
-            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,2]*(1-A[:,:,s,3])
-            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,2]*(1-A[:,:,s,3])
+            # -- N4 xenon w mask border
+            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-mask_border[:,:,s])
+            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
+            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
+
+            # -- N4 xenon w defects
+            imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-A[:,:,s,4]) + A[:,:,s,4]
+            imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]*(1-A[:,:,s,4])
+            imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-A[:,:,s,4])
         plt.imsave(path, imageArray, cmap='gray')
             
     def __str__(self) -> str:
@@ -445,7 +458,11 @@ def arrayToImage(A,size):
     return(image)
 
 
-normalize = lambda x: (x - np.min(x)) / (np.max(x) - np.min(x))
+def normalize(x):
+    if (np.max(x) - np.min(x)) == 0:
+        return x
+    else:
+        return (x - np.min(x)) / (np.max(x) - np.min(x))
 
 def colorBinary(A,B):
     A = normalize(A)
@@ -490,7 +507,7 @@ if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
     import pickle
-    version = '240320_RPT'
+    version = '240325_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
@@ -561,8 +578,8 @@ if __name__ == "__main__":
         [sg.HorizontalSeparator()],
         [sg.Column(patient_data_column),sg.VSeperator(),sg.Column(dicom_data_column),sg.VSeperator(),sg.Column(image_column)],  
         [sg.Text('',key = '-STATUS-')],
-        [sg.InputText(key='exportpath',default_text='C:/PIRL/data/MEPOXE0039/',size=(200,200))],
-        [sg.Button('Export Data',key='-EXPORT-'),sg.Checkbox('Copy H5 to Archive',default=True,key='-ARCHIVE-')]
+        [sg.Text('Export Path:'),sg.InputText(key='exportpath',default_text='C:/PIRL/data/MEPOXE0039/',size=(200,200))],
+        [sg.Button('Export Data',key='-EXPORT-'),sg.Checkbox('Copy pickle to Archive',default=True,key='-ARCHIVE-'),sg.Push(),sg.Button('Clear Cache',key='-CLEARCACHE-')]
     ]
 
     window = sg.Window(f'PIRL Ventilation Analysis -- {version}', layout, return_keyboard_events=True, margins=(0, 0), finalize=True, size= (1200,730))
@@ -733,6 +750,50 @@ if __name__ == "__main__":
                 continue
 
 ## --------------- EXPORT Button ------------------- ##
+        elif event == ('-CLEARCACHE-'):
+            print('Clearing Cache...')
+            window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            window['subject'].update(f'Subject: ')
+            window['studydate'].update(f'Study Date: ')
+            window['studytime'].update(f'Study Time: ')
+            window['age'].update(f'Age: ')
+            window['sex'].update(f'Sex: ')
+            window['dob'].update(f'DOB: ')
+            window['height'].update(f'Height: ')
+            window['weight'].update(f'Weight: ')
+            window['vox'].update(f'')
+            window['snr'].update(f'SNR:')
+            window['vdp'].update(f'VDP: ')
+            window['ventarrayshape'].update(f'Ventilation Array Shape: ')
+            window['masklungvol'].update(f'Mask Lung Volume:')
+            window['defectvolume'].update(f'Defect Volume:')
+            window['ci'].update(f'CI:')
+            window['twixdate'].update(f'Twix Date:')
+            window['twixprotocol'].update(f'Twix Protocol:')
+            window['-INITIALIZE-'].update(button_color = 'lightgray')
+            window['-CALCVDP-'].update(button_color = 'lightgray')
+            window['-CALCCI-'].update(button_color = 'lightgray')
+            window['-RUNTWIX-'].update(button_color = 'lightgray')
+            window['-EXPORT-'].update(button_color = 'lightgray')
+            window['genxeRadio'].update(False)
+            window['genxeInputs'].update(visible=False)
+            window['mepoRadio'].update(False)
+            window['mepoInputs'].update(visible=False)
+            window['clinicalRadio'].update(False)
+            window['clinicalInputs'].update(visible=False)
+            window['-STATUS-'].update("Analysis Cache is cleared and ready for the next subject!...",text_color='blue')
+            try:
+                del Vent1
+            except:
+                print('Vent1 already cleared')
+
+            
+
+## --------------- EXPORT Button ------------------- ##
         elif event == ('-EXPORT-'):
             '''Here we'll save 3 important things: the 4D data arrays, one of the DICOM datasets and one of the TWIX datasets,
             and all the many single variable inputs/outputs such as patient name, study ID, scan date/time, etc. To do this, we'll
@@ -751,8 +812,8 @@ if __name__ == "__main__":
             EXPORT_path = os.path.join(values['exportpath'],targetPath)
             errorMarker = []
 
-            # Did the user input their name??
-            if not values['genxeRadio'] and not values['mepoRadio'] and values['clinicalRadio']:
+            # Make sure the user selects an IRB
+            if not values['genxeRadio'] and not values['mepoRadio'] and not values['clinicalRadio']:
                 window['-STATUS-'].update("Don't forget to select an IRB!...",text_color='red')
                 continue
 
@@ -829,6 +890,7 @@ if __name__ == "__main__":
                 print('\033[31mError saving JSON header. Was the TWIX processed?...\033[37m')
 
             # 5 - Pickle and save the data!
+            print(metadata)
             data_to_pickle = (dataArray,twixArray,metadata)
             with open(os.path.join(EXPORT_path, f'{fileName}.pkl'), 'wb') as file:
                 pickle.dump(data_to_pickle, file)
@@ -848,7 +910,11 @@ if __name__ == "__main__":
             
 
 
-
-
-
-
+'''Things to add:
+ - JSON doesnt export if CI calculated???
+ - Vent_Analysis class inputs either paths to data or the arrays themselves
+ - Output DICOM header info as JSON
+ - get more header info (both TWIX and DICOM) into metadata variable
+ - CI colormap output in screenshot
+ - Multiple VDPs calculated (linear binning, k-means)
+ - show histogram?'''
