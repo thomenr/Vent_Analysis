@@ -7,6 +7,20 @@ There's 2 important pieces to this code. First, this contains the *Vent_Analysis
 The [powerpoint](https://github.com/thomenr/Vent_Analysis/blob/main/Vent_Analysis.pptx) gives an overview of how it all works. Essentially, you just plug in paths to your data and click the buttons for methods you want to run. Once they've run, the image windows will update with your data and you can export the analyses. Easy peasy!
 
 ## Setup
-Clone this github:  
+Using your favorite [git bash](https://git-scm.com/downloads) clone this github:  
 `git clone https://github.com/thomenr/Vent_Analysis`  
-Hooray
+Next you'll need to install the python modules listed in the [requirements.txt](https://github.com/thomenr/Vent_Analysis/blob/main/requirements.txt) file:  
+`pip install -r requirements.txt`  
+Now, using your favorite [IDE](https://code.visualstudio.com/download), run the code (see the powerpoint for a few ways to do this - slide 3).
+Follow the GUI instructions and you'll be calculating VDPs in no time!
+
+## Things to do in future versions
+ - Vent_Analysis class inputs either paths to data or the arrays themselves
+ - Output DICOM header info as JSON
+ - get more header info (both TWIX and DICOM) into metadata variable
+ - CI colormap output in screenshot
+ - Multiple VDPs calculated (linear binning, k-means)
+ - show histogram?
+ - edit mask
+ - automatic segmentation using proton (maybe DL this?)
+ - Denoise Option
