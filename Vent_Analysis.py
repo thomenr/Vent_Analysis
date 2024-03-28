@@ -472,8 +472,6 @@ def colorBinary(A,B):
     new[:,:,2] = A*(B==0)
     return new*255
 
-
-
 def extract_attributes(attr_dict, parent_key='', sep='_'):
     """
     Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
@@ -749,7 +747,7 @@ if __name__ == "__main__":
                 window['-STATUS-'].update("ERROR: TWIX couldnt process for some reason...",text_color='red')
                 continue
 
-## --------------- EXPORT Button ------------------- ##
+## --------------- CLEAR CACHE Button ------------------- ##
         elif event == ('-CLEARCACHE-'):
             print('Clearing Cache...')
             window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
