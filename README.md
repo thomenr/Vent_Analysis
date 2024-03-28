@@ -7,6 +7,6 @@ There's 2 important pieces to this code. First, this contains the *Vent_Analysis
 The [powerpoint](https://github.com/thomenr/Vent_Analysis/blob/main/Vent_Analysis.pptx) gives an overview of how it all works. Essentially, you just plug in paths to your data and click the buttons for methods you want to run. Once they've run, the image windows will update with your data and you can export the analyses. Easy peasy!
 
 ## Setup
-Clone this github:
-`git clone https://github.com/thomenr/Vent_Analysis`
+Clone this github:  
+`git clone https://github.com/thomenr/Vent_Analysis`  
 Hooray
