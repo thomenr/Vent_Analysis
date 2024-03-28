@@ -8,5 +8,5 @@ The [powerpoint](https://github.com/thomenr/Vent_Analysis/blob/main/Vent_Analysi
 
 ## Setup
 Clone this github:
-`<code>` git clone https://github.com/thomenr/Vent_Analysis
+`git clone https://github.com/thomenr/Vent_Analysis`
 Hooray
