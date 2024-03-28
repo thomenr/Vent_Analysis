@@ -1,0 +1,1 @@
+pyinstaller Vent_Analysis.py --icon=pirl.ico --onefile --hidden-import=nibabel==5.1.0 --hidden-import=numpy==1.24.4 --hidden-import=numpy-stl==2.13.0 --hidden-import=scipy==1.10.1 --hidden-import=SimpleITK==2.3.1 --hidden-import=pydicom==2.4.3 --hidden-import=pyMapVBVD==0.5.4 --hidden-import=matplotlib==3.7.2 --hidden-import=matplotlib-inline==0.1.6 --hidden-import=Pillow==10.0.0

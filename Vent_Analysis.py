@@ -10,7 +10,7 @@ from sys import getsizeof # --------------- To report twix object size
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
 import pydicom as dicom # ----------------- for openSingleDICOM and openDICOMFolder
-from matplotlib import pyplot as plt # ---- for makeSlide
+from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
 import skimage.util # --------------------- for image montages
 import nibabel as nib # ------------------- for Nifti stuffs
 import PySimpleGUI as sg # ---------------- for GUI stuffs
@@ -45,7 +45,7 @@ class Vent_Analysis:
         process_RAW - process the corresponding TWIX file associated
     """
     def __init__(self,xenon_path = None, mask_dir = None, proton_path = None):
-        self.version = '240325_RPT' # - update this when changes are made!! - #
+        self.version = '240327_RPT' # - update this when changes are made!! - #
         self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
         self.pullDICOMHeader()
         if proton_path is not None: 
@@ -507,7 +507,7 @@ if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
     import pickle
-    version = '240325_RPT'
+    version = '240327_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
@@ -916,11 +916,14 @@ if __name__ == "__main__":
             
 
 
-'''Things to add:
- - JSON doesnt export if CI calculated???
+'''Things to add (updated 3/27/2024):
  - Vent_Analysis class inputs either paths to data or the arrays themselves
  - Output DICOM header info as JSON
  - get more header info (both TWIX and DICOM) into metadata variable
  - CI colormap output in screenshot
  - Multiple VDPs calculated (linear binning, k-means)
- - show histogram?'''
+ - show histogram?
+ - edit mask
+ - automatic segmentation using proton (maybe DL this?)
+ - Denoise Option
+ '''
