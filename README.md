@@ -8,15 +8,15 @@ The [powerpoint](https://github.com/thomenr/Vent_Analysis/blob/main/Vent_Analysi
 
 ## Setup
 Using your favorite [git bash](https://git-scm.com/downloads) clone this github:  
-`git clone https://github.com/thomenr/Vent_Analysis`  
+  `git clone https://github.com/thomenr/Vent_Analysis`  
 Next you'll need to install the python modules listed in the [requirements.txt](https://github.com/thomenr/Vent_Analysis/blob/main/requirements.txt) file:  
-`pip install -r requirements.txt`  
+  `pip install -r requirements.txt`  
 Now, using your favorite [IDE](https://code.visualstudio.com/download), run the code (see the powerpoint for a few ways to do this - slide 3).
 Follow the GUI instructions and you'll be calculating VDPs in no time!  
 
 If you want, you can also create your own .exe to run the GUI without a python instance or anything...BUT, you'll need to compile the exe yourself in python. I didn't do that here, because the resultant exe is 183 Mb which is too big for github. If you want to create an exe it's super easy. Just install the PyInstaller module:  
-`pip install pyinstaller`  
-Then, in powershell navigate to the repository directory and run the command in the [EXE build command.txt](https://github.com/thomenr/Vent_Analysis/blob/main/EXE build command.txt) file. It will build the exe for you in a 'dist' folder. Done!  
+  `pip install pyinstaller`  
+Then, in powershell navigate to the repository directory and run the command in the [EXE_build_command.txt](https://github.com/thomenr/Vent_Analysis/blob/main/EXE_build_command.txt) file. It will build the exe for you in a 'dist' folder. Done!  
 
 
 ## Things to do in future versions
