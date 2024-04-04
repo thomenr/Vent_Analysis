@@ -45,7 +45,7 @@ class Vent_Analysis:
         process_RAW - process the corresponding TWIX file associated
     """
     def __init__(self,xenon_path = None, mask_dir = None, proton_path = None):
-        self.version = '240327_RPT' # - update this when changes are made!! - #
+        self.version = '240403_RPT' # - update this when changes are made!! - #
         self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
         self.pullDICOMHeader()
         if proton_path is not None: 
@@ -505,7 +505,7 @@ if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
     import pickle
-    version = '240327_RPT'
+    version = '240403_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
@@ -575,6 +575,7 @@ if __name__ == "__main__":
          sg.Column(dose_info_column)],
         [sg.HorizontalSeparator()],
         [sg.Column(patient_data_column),sg.VSeperator(),sg.Column(dicom_data_column),sg.VSeperator(),sg.Column(image_column)],  
+        [sg.Text('Notes:'),sg.InputText(key='notes',size=(200,200))],
         [sg.Text('',key = '-STATUS-')],
         [sg.Text('Export Path:'),sg.InputText(key='exportpath',default_text='C:/PIRL/data/MEPOXE0039/',size=(200,200))],
         [sg.Button('Export Data',key='-EXPORT-'),sg.Checkbox('Copy pickle to Archive',default=True,key='-ARCHIVE-'),sg.Push(),sg.Button('Clear Cache',key='-CLEARCACHE-')]
@@ -590,9 +591,9 @@ if __name__ == "__main__":
 
     while True:
         event, values = window.read()
-        #print("")
-        #print(event)
-        #print(values)
+        print("")
+        print(event)
+        print(values)
         if event == sg.WIN_CLOSED:
             break
 ## --------------- PLUS MINUS BUTTONS --------------------------- ##
@@ -772,6 +773,7 @@ if __name__ == "__main__":
             window['ci'].update(f'CI:')
             window['twixdate'].update(f'Twix Date:')
             window['twixprotocol'].update(f'Twix Protocol:')
+            window['notes'].update('')
             window['-INITIALIZE-'].update(button_color = 'lightgray')
             window['-CALCVDP-'].update(button_color = 'lightgray')
             window['-CALCCI-'].update(button_color = 'lightgray')
@@ -786,6 +788,7 @@ if __name__ == "__main__":
             window['-STATUS-'].update("Analysis Cache is cleared and ready for the next subject!...",text_color='blue')
             try:
                 del Vent1
+                print('Vent1 cleared')
             except:
                 print('Vent1 already cleared')
 
@@ -846,7 +849,7 @@ if __name__ == "__main__":
             # 1 - build the METADATA as a dictionary 'metadata'
             try:
                 window['-STATUS-'].update("Building Metadata...",text_color='blue')
-                print('\033[34mBuilding Metadata into h5..\033[37m')
+                print('\033[34mBuilding Metadata..\033[37m')
                 metadata = Vent1.buildMetadata()
                 metadata['visit'] = visit
                 metadata['treatment'] = treatment
@@ -857,22 +860,26 @@ if __name__ == "__main__":
                 metadata['IRB'] = IRB
                 metadata['SNR'] = Vent1.SNR
                 metadata['VDP'] = Vent1.VDP
+                metadata['notes'] = values['notes']
                 metadata['LungVolume'] = str(np.round(np.sum(Vent1.mask>0)*np.prod(Vent1.vox)/1000/1000,1))
                 metadata['DefectVolume'] = str(np.round(np.sum(Vent1.defectArray>0)*np.prod(Vent1.vox)/1000/1000,1))
             except:
-                print('\033[31mError at building metadata...\033[37m')
+                print('\033[31mError building metadata...\033[37m')
 
             try:
                 metadata['CI'] = str(Vent1.CI)
             except:
-                print('\033[33mNoCI to add...\033[37m')
+                print('\033[33mNoCI to add to metadata...\033[37m')
 
 
             # 2 - build the 4D data arrays into 'dataArray' for DICOM data and 'twixArray' for twix data
             dataArray = Vent1.build4DdataArray()
-            twixArray = np.zeros((Vent1.raw_HPvent.shape[0],Vent1.raw_HPvent.shape[1],Vent1.raw_HPvent.shape[2],2)).astype(np.complex128)
-            twixArray[:,:,:,0] = Vent1.raw_HPvent
-            twixArray[:,:,:,1] = np.transpose(Vent1.raw_K,(1,0,2))
+            try:
+                twixArray = np.zeros((Vent1.raw_HPvent.shape[0],Vent1.raw_HPvent.shape[1],Vent1.raw_HPvent.shape[2],2)).astype(np.complex128)
+                twixArray[:,:,:,0] = Vent1.raw_HPvent
+                twixArray[:,:,:,1] = np.transpose(Vent1.raw_K,(1,0,2))
+            except:
+                print("\033[33mCould not build the twixArray - guess you didn't want to include a TWIX?\033[37m")
                 
             # 3 - Export the 4D dataArray as a Nifti
             Vent1.exportNifti(EXPORT_path,fileName)
@@ -889,13 +896,27 @@ if __name__ == "__main__":
             try:
                 with open(os.path.join(EXPORT_path,f'{fileName}_TWIXHEADER.json'), 'w') as fp:
                     json.dump(extract_attributes(twix_header), fp,indent=2)
+                print('\033[35mTWIX JSON header saved!\033[37m')
             except:
                 errorMarker = np.append(errorMarker,5)
                 print('\033[31mError saving JSON header. Was the TWIX processed?...\033[37m')
 
+            # 4 - Save metadata to JSON file
+            try:
+                with open(os.path.join(EXPORT_path,f'{fileName}_METADATA.json'), 'w') as fp:
+                    json.dump(metadata, fp,indent=2)
+                print('\033[35mMetadata JSON header saved!\033[37m')
+            except:
+                errorMarker = np.append(errorMarker,5)
+                print('\033[31mError saving metadata...\033[37m')
+
             # 5 - Pickle and save the data!
             print(metadata)
-            data_to_pickle = (dataArray,twixArray,metadata)
+            try:
+                data_to_pickle = (dataArray,twixArray,metadata)
+            except:
+                data_to_pickle = (dataArray,metadata)
+                print('No twixArray was included.')
             with open(os.path.join(EXPORT_path, f'{fileName}.pkl'), 'wb') as file:
                 pickle.dump(data_to_pickle, file)
             window['-STATUS-'].update("Data Successfully Exported...",text_color='green')
@@ -925,3 +946,6 @@ if __name__ == "__main__":
  - automatic segmentation using proton (maybe DL this?)
  - Denoise Option
  '''
+
+
+
