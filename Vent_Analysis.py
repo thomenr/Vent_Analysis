@@ -45,13 +45,31 @@ class Vent_Analysis:
         process_RAW - process the corresponding TWIX file associated
     """
     def __init__(self,xenon_path = None, mask_dir = None, proton_path = None):
-        self.version = '240403_RPT' # - update this when changes are made!! - #
-        self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
-        self.pullDICOMHeader()
+        self.version = '240410_RPT' # - update this when changes are made!! - #
+        try:
+            print('\033[34mOpening Xenon DICOM\033[37m')
+            self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
+        except:
+            print('\033[31mOpening Xenon DICOM failed...\033[37m')
+
+        try:
+            print('\033[34mPulling DICOM Header\033[37m')
+            self.pullDICOMHeader()
+        except:
+            print('\033[31mPulling DICOM Header failed...\033[37m')
+
         if proton_path is not None: 
-            self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
-        _, self.mask = self.openDICOMfolder(mask_dir)
-        self.mask_border = self.calculateBorder(self.mask)
+            try:
+                print('\033[34mOpening proton DICOM\033[37m')
+                self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
+            except:
+                print('\033[31mOpening Xenon DICOM failed...\033[37m')
+        try:
+            print('\033[34mLoading Mask and calculating border\033[37m')
+            _, self.mask = self.openDICOMfolder(mask_dir)
+            self.mask_border = self.calculateBorder(self.mask)
+        except:
+            print('\033[31mLoading Mask and border failed...\033[37m')
 
     def openSingleDICOM(self,dicom_path):        
         if dicom_path is None:
@@ -64,7 +82,7 @@ class Vent_Analysis:
             ds = dicom.dcmread(dicom_path)
         DICOM_array = ds.pixel_array
         DICOM_array = np.transpose(DICOM_array,(1,2,0))
-        print(f'\033[94mI opened a DICOM of shape {DICOM_array.shape}\033[37m')
+        print(f'\033[32mI opened a DICOM of shape {DICOM_array.shape}\033[37m')
         return ds, DICOM_array
 
 
@@ -79,19 +97,55 @@ class Vent_Analysis:
         for f,k in zip(dcm_filelist,range(len(dcm_filelist))):
             ds = dicom.dcmread(os.path.join(maskFolder,f))
             mask[:,:,k] = ds.pixel_array
-        print(f'\033[94mI built a mask of shape {mask.shape}\033[37m')
+        print(f'\033[32mI built a mask of shape {mask.shape}\033[37m')
         return ds, mask
 
     def pullDICOMHeader(self):
-        self.PatientName = self.ds.PatientName
-        self.PatientAge = self.ds.PatientAge
-        self.PatientBirthDate = self.ds.PatientBirthDate
-        self.PatientSize = self.ds.PatientSize
-        self.PatientWeight = self.ds.PatientWeight
-        self.PatientSex = self.ds.PatientSex
-        self.StudyDate = self.ds.StudyDate
-        self.StudyTime = self.ds.StudyTime
-        self.SeriesTime = self.ds.SeriesTime
+        try:
+            self.PatientName = self.ds.PatientName
+        except:
+            print('\033[31mNo patientName\033[37m')
+            self.PatientName = 'None in Header'
+        try:
+            self.PatientAge = self.ds.PatientAge
+        except:
+            print('\033[31mNo patientAge\033[37m')
+            self.PatientAge = 'None in Header'
+        try:
+            self.PatientBirthDate = self.ds.PatientBirthDate
+        except:
+            print('\033[31mNo patientBirthDate\033[37m')
+            self.PatientBirthDate = 'None in Header'
+        try:
+            self.PatientSize = self.ds.PatientSize
+        except:
+            print('\033[31mNo patientSize\033[37m')
+            self.PatientSize = 'None in Header'
+        try:
+            self.PatientWeight = self.ds.PatientWeight
+        except:
+            print('\033[31mNo patientWeight\033[37m')
+            self.PatientWeight = 'None in Header'
+        try:
+            self.PatientSex = self.ds.PatientSex
+        except:
+            print('\033[31mNo patientSex\033[37m')
+            self.PatientSex = 'None in Header'
+        try:
+            self.StudyDate = self.ds.StudyDate
+        except:
+            print('\033[31mNo StudyDate\033[37m')
+            self.StudyDate = 'None in Header'
+        try:
+            self.StudyTime = self.ds.StudyTime
+        except:
+            print('\033[31mNo StudyTime\033[37m')
+            self.StudyTime = 'None in Header'
+        try:
+            self.SeriesTime = self.ds.SeriesTime
+        except:
+            print('\033[31mNo SeriesTime\033[37m')
+            self.SeriesTime = 'None in Header'
         for k in range(100):
             try:
                 self.vox = self.ds[0x5200, 0x9230][k]['PixelMeasuresSequence'][0].PixelSpacing
@@ -505,7 +559,7 @@ if __name__ == "__main__":
     import PySimpleGUI as sg
     import json
     import pickle
-    version = '240403_RPT'
+    version = '240410_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
@@ -591,9 +645,9 @@ if __name__ == "__main__":
 
     while True:
         event, values = window.read()
-        print("")
-        print(event)
-        print(values)
+        #print("")
+        #print(event)
+        #print(values)
         if event == sg.WIN_CLOSED:
             break
 ## --------------- PLUS MINUS BUTTONS --------------------------- ##
