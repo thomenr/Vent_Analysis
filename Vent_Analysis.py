@@ -592,17 +592,17 @@ if __name__ == "__main__":
                            [sg.Text('FEV1 [%]: '),sg.InputText(key='FEV1',size=(10,10))],
                            [sg.Text('FVC [%]: '),sg.InputText(key='FVC',size=(10,10))],
                            ]
-    
-    patient_data_column = [[sg.Text('Subject:                               ',key='subject',pad=(0,0))],
-                           [sg.Text('Study Date:',key='studydate',pad=(0,0))],
-                           [sg.Text('Study Time:',key='studytime',pad=(0,0))],
-                           [sg.Text('Twix Date:',key='twixdate',pad=(0,0))],
-                           [sg.Text('Protocol:',key='twixprotocol',pad=(0,0))],
-                           [sg.Text('Age:',key='age',pad=(0,0))],
-                           [sg.Text('Sex:',key='sex',pad=(0,0))],
-                           [sg.Text('DOB:',key='dob',pad=(0,0))],
-                           [sg.Text('Height:',key='height',pad=(0,0))],
-                           [sg.Text('Weight:',key = 'weight',pad=(0,0))]]
+
+    patient_data_column = [[sg.Button('',key='editPatientName',pad=(0,0)),sg.Text('Subject:                               ',key='subject',pad=(0,0))],
+                           [sg.Button('',key='editStudyDate',pad=(0,0)),sg.Text('Study Date:',key='studydate',pad=(0,0))],
+                           [sg.Button('',key='editStudyTime',pad=(0,0)),sg.Text('Study Time:',key='studytime',pad=(0,0))],
+                           [sg.Button('',key='editTwixDate',pad=(0,0)),sg.Text('Twix Date:',key='twixdate',pad=(0,0))],
+                           [sg.Button('',key='editProtocol',pad=(0,0)),sg.Text('Protocol:',key='twixprotocol',pad=(0,0))],
+                           [sg.Button('',key='editPatientAge',pad=(0,0)),sg.Text('Age:',key='age',pad=(0,0))],
+                           [sg.Button('',key='editPatientSex',pad=(0,0)),sg.Text('Sex:',key='sex',pad=(0,0))],
+                           [sg.Button('',key='editPatientDOB',pad=(0,0)),sg.Text('DOB:',key='dob',pad=(0,0))],
+                           [sg.Button('',key='editPatientHeight',pad=(0,0)),sg.Text('Height:',key='height',pad=(0,0))],
+                           [sg.Button('',key='editPatientWeight',pad=(0,0)),sg.Text('Weight:',key = 'weight',pad=(0,0))]]
     dicom_data_column = [[sg.Text('DICOM Voxel Size:                                ',key = 'vox',pad=(0,0))],
                          [sg.Text('SNR:',key = 'snr',pad=(0,0))],
                          [sg.Text('VDP:',key = 'vdp',pad=(0,0))],
@@ -685,7 +685,24 @@ if __name__ == "__main__":
         #elif event == ('clinicalRadio'):
         #    window['clinicalInputs'].update(visible=True)
 
-
+## --------------- Info Edit Buttons ------------------- ##
+        elif event == ('editPatientName'):
+            text = sg.popup_get_text('Enter Subject ID: ')
+            window['subject'].update(f'Subject: {text}')
+            Vent1.patientName = text
+        elif event == ('editPatientAge'):
+            text = sg.popup_get_text('Enter Patient Age: ')
+            window['age'].update(f'Age: {text}')
+            Vent1.patientName = text
+        elif event == ('editPatientSex'):
+            text = sg.popup_get_text('Enter Patient Sex: ')
+            window['sex'].update(f'Sex: {text}')
+            Vent1.patientName = text
+        elif event == ('editPatientDOB'):
+            text = sg.popup_get_text('Enter Patient DOB: ')
+            window['dob'].update(f'DOB: {text}')
+            Vent1.patientName = text
+            
 ## --------------- INITIALIZE Button ------------------- ##
         elif event == ('-INITIALIZE-'):
             DICOM_path = values['DICOMpath']
