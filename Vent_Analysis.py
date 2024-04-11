@@ -92,6 +92,7 @@ class Vent_Analysis:
             print('\033[94mSelect the mask folder...\033[37m')
             maskFolder = tk.filedialog.askdirectory()
         dcm_filelist = [f for f in os.listdir(maskFolder) if f.endswith('.dcm')]
+        dcm_fileList = sorted(dcm_fileList)
         ds = dicom.dcmread(os.path.join(maskFolder,dcm_filelist[0]))
         mask = np.zeros((ds.pixel_array.shape[0],ds.pixel_array.shape[1],len(dcm_filelist)))
         for f,k in zip(dcm_filelist,range(len(dcm_filelist))):
