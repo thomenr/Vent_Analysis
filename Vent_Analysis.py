@@ -105,7 +105,7 @@ class Vent_Analysis:
         if maskFolder is None:
             print('\033[94mSelect the mask folder...\033[37m')
             maskFolder = tk.filedialog.askdirectory()
-        dcm_filelist = [f for f in os.listdir(maskFolder) if f.endswith('.dcm')]
+        dcm_filelist = [f for f in sorted(os.listdir(maskFolder)) if f.endswith('.dcm')]
         ds = dicom.dcmread(os.path.join(maskFolder,dcm_filelist[0]))
         mask = np.zeros((ds.pixel_array.shape[0],ds.pixel_array.shape[1],len(dcm_filelist)))
         for f,k in zip(dcm_filelist,range(len(dcm_filelist))):
@@ -964,6 +964,7 @@ if __name__ == "__main__":
                 elif values['postalb_clin']: fileName = f'{fileName}_postAlb';treatment = 'postAlb'
                 
             print(f'-- FileName: {fileName} --')
+            print(f'-- FilePath: {EXPORT_path} --')
 
             # Create the Export directory
             if not os.path.isdir(EXPORT_path):
