@@ -44,32 +44,46 @@ class Vent_Analysis:
         calculateCI - calculates CI (imports CI functions)
         process_RAW - process the corresponding TWIX file associated
     """
-    def __init__(self,xenon_path = None, mask_dir = None, proton_path = None):
-        self.version = '240410_RPT' # - update this when changes are made!! - #
-        try:
-            print('\033[34mOpening Xenon DICOM\033[37m')
-            self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
-        except:
-            print('\033[31mOpening Xenon DICOM failed...\033[37m')
-
-        try:
-            print('\033[34mPulling DICOM Header\033[37m')
-            self.pullDICOMHeader()
-        except:
-            print('\033[31mPulling DICOM Header failed...\033[37m')
-
-        if proton_path is not None: 
+    def __init__(self,xenon_path = None, mask_dir = None, proton_path = None,xenon_array = None,mask_array=None,proton_array=None):
+        self.version = '240412_RPT' # - update this when changes are made!! - #
+        if xenon_array is not None:
+            print('\033[34mXenon array provided\033[37m')
+            self.HPvent = xenon_array
+        else:
             try:
-                print('\033[34mOpening proton DICOM\033[37m')
-                self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
+                print('\033[34mOpening Xenon DICOM\033[37m')
+                self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
             except:
                 print('\033[31mOpening Xenon DICOM failed...\033[37m')
-        try:
-            print('\033[34mLoading Mask and calculating border\033[37m')
-            _, self.mask = self.openDICOMfolder(mask_dir)
+
+            try:
+                print('\033[34mPulling DICOM Header\033[37m')
+                self.pullDICOMHeader()
+            except:
+                print('\033[31mPulling DICOM Header failed...\033[37m')
+
+        if mask_array is not None:
+            print('\033[34mMask array provided\033[37m')
+            self.mask = mask_array
             self.mask_border = self.calculateBorder(self.mask)
-        except:
-            print('\033[31mLoading Mask and border failed...\033[37m')
+        else:
+            try:
+                print('\033[34mLoading Mask and calculating border\033[37m')
+                _, self.mask = self.openDICOMfolder(mask_dir)
+                self.mask_border = self.calculateBorder(self.mask)
+            except:
+                print('\033[31mLoading Mask and border failed...\033[37m')
+
+        if proton_array is not None: 
+            self.proton = proton_array
+        else:
+            if proton_path is not None: 
+                try:
+                    print('\033[34mOpening proton DICOM\033[37m')
+                    self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
+                except:
+                    print('\033[31mOpening Xenon DICOM failed...\033[37m')
+
 
     def openSingleDICOM(self,dicom_path):        
         if dicom_path is None:
@@ -620,7 +634,7 @@ if __name__ == "__main__":
         [sg.Image(PIRLlogo),sg.Text(f'version {version}'),sg.Text('         User:'),sg.InputText(key='userName',size=(10,1),enable_events=False),sg.Button('-',key='minus'),sg.Button('+',key='plus')],
         [sg.HorizontalSeparator()],
         [sg.Column(path_label_column),sg.Column(path_column)],
-        [sg.Button('Load from Paths', key='-INITIALIZE-'),sg.Button('Calculate VDP', key='-CALCVDP-'),sg.Button('Calculate CI', key='-CALCCI-'),sg.Button('Import TWIX', key='-RUNTWIX-')],  
+        [sg.Button('Load from Paths', key='-INITIALIZE-'),sg.Button('Calculate VDP', key='-CALCVDP-'),sg.Button('Calculate CI', key='-CALCCI-'),sg.Button('Import TWIX', key='-RUNTWIX-'),sg.Button('Load Pickle', key='-LOADPICKLE-',pad = (300,0))],  
         [sg.HorizontalSeparator()],
         [sg.Column(IRB_select_column),
          sg.Column(clinical_info_column,key='clinicalInputs',visible=False),
@@ -702,7 +716,45 @@ if __name__ == "__main__":
             text = sg.popup_get_text('Enter Patient DOB: ')
             window['dob'].update(f'DOB: {text}')
             Vent1.patientName = text
+
+## --------------- Load Pickle ------------------- ##       
+        elif event == ('-LOADPICKLE-'):
+            text = sg.popup_get_text('Enter Pickle Path: ')
+            text = 'C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_240403/Mepo0000_240301.pkl'
+            with open(text, 'rb') as f:
+                pkl = pickle.load(f) 
+            Vent1 = Vent_Analysis(xenon_array=pkl[0][:,:,:,1],mask_array=pkl[0][:,:,:,2],proton_array=pkl[0][:,:,:,0])
+            Vent1.PatientName = pkl[2]['DICOMPatientName']
+            Vent1.StudyDate = pkl[2]['DICOMStudyDate']
+            Vent1.StudyTime = pkl[2]['DICOMStudyTime']
+            Vent1.PatientAge = pkl[2]['DICOMPatientAge']
+            Vent1.PatientBirthDate = pkl[2]['DICOMPatientBirthDate']
+            Vent1.PatientSex = pkl[2]['DICOMPatientSex']
+            Vent1.PatientSize = pkl[2]['DICOMPatientHeight']
+            Vent1.PatientWeight = pkl[2]['DICOMPatientWeight']
+            Vent1.vox = pkl[2]['DICOMVoxelSize']
+
+            protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
+            protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))
+            window['-PROTONIMAGE-'].update(data=protonMontageImage)
+            window['-STATUS-'].update("Vent_Analysis loaded",text_color='green')
+            window['-INITIALIZE-'].update(button_color = 'green')
+            window['subject'].update(f'Subject: {Vent1.PatientName}')
+            window['studydate'].update(f'Study Date: {Vent1.StudyDate}')
+            window['studytime'].update(f'Study Time: {Vent1.StudyTime}')
+            window['age'].update(f'Age: {Vent1.PatientAge}')
+            window['sex'].update(f'Sex: {Vent1.PatientSex}')
+            window['dob'].update(f'DOB: {Vent1.PatientBirthDate}')
+            window['height'].update(f'Height: {Vent1.PatientSize} [m]')
+            window['weight'].update(f'Weight: {Vent1.PatientWeight} [kg]')
+            window['vox'].update(f'DICOM voxel Size: {Vent1.vox} [mm]')
+            rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
+            mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
+            rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
+            #rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
+            window['-RAWIMAGE-'].update(data=rawMontageImage)
             
+
 ## --------------- INITIALIZE Button ------------------- ##
         elif event == ('-INITIALIZE-'):
             DICOM_path = values['DICOMpath']
