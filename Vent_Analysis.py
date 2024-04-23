@@ -44,8 +44,26 @@ class Vent_Analysis:
         calculateCI - calculates CI (imports CI functions)
         process_RAW - process the corresponding TWIX file associated
     """
-    def __init__(self,xenon_path = None, mask_dir = None, proton_path = None,xenon_array = None,mask_array=None,proton_array=None):
+    def __init__(self,xenon_path = None, 
+                 mask_dir = None, 
+                 proton_path = None, 
+                 xenon_array = None, 
+                 mask_array = None, 
+                 proton_array = None,
+                 pickle_path = None,
+                 pickle = None):
         self.version = '240412_RPT' # - update this when changes are made!! - #
+
+        ## -- steps if a pickle or pickle path is specified -- ##
+        if pickle_path is not None:
+            with open(pickle_path, 'rb') as f:
+                pickle = pickle.load(f)
+                self.unpickle(pickle.load(f))
+        elif pickle is not None:
+            self.unpickle(pickle)
+                
+
+
         if xenon_array is not None:
             print('\033[34mXenon array provided\033[37m')
             self.HPvent = xenon_array
@@ -83,6 +101,9 @@ class Vent_Analysis:
                     self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
                 except:
                     print('\033[31mOpening Xenon DICOM failed...\033[37m')
+
+    def unpickle(pickle):
+        
 
 
     def openSingleDICOM(self,dicom_path):        
