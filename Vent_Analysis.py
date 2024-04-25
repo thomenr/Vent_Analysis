@@ -63,7 +63,6 @@ class Vent_Analysis:
             self.unpickle(pickle)
                 
 
-
         if xenon_array is not None:
             print('\033[34mXenon array provided\033[37m')
             self.HPvent = xenon_array
@@ -101,9 +100,6 @@ class Vent_Analysis:
                     self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
                 except:
                     print('\033[31mOpening Xenon DICOM failed...\033[37m')
-
-    def unpickle(pickle):
-        
 
 
     def openSingleDICOM(self,dicom_path):        
