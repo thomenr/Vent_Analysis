@@ -45,7 +45,8 @@ class Vent_Analysis:
         process_RAW - process the corresponding TWIX file associated
     """
     def __init__(self,xenon_path = None, mask_dir = None, proton_path = None,xenon_array = None,mask_array=None,proton_array=None):
-        self.version = '240412_RPT' # - update this when changes are made!! - #
+        self.version = '240425_RPT' # - update this when changes are made!! - #
+
         if xenon_array is not None:
             print('\033[34mXenon array provided\033[37m')
             self.HPvent = xenon_array

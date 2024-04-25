@@ -1,3 +1,5 @@
+## -- Code to calculate the Cluster Index of an array given the binary defect array and voxel dimensions
+## -- RPT, 4/25/2024
 import numpy as np
 import time
 from tqdm import tqdm # ------ for progress bar
@@ -133,7 +135,7 @@ def calculate_CI(defectArray,vox=[1,1,1],Rmax=50,type='fast'):
             for f1 in tqdm(CI_futures):
                 CIlist.append(f1.result())
         CIlist = np.vstack(CIlist)
-        CI = defectArray*0
+        CI = np.double(defectArray*0)
         for k in range(CIlist.shape[0]):
             CI[int(CIlist[k,0]),int(CIlist[k,1]),int(CIlist[k,2])] = CIlist[k,3]
         print(f"Time to calculate fast CI array: {np.round((time.time()-start_time)/60,2)} min")
