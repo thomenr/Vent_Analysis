@@ -380,7 +380,7 @@ class Vent_Analysis:
         return cropped_A, list(range(rows_start, rows_end)), list(range(cols_start, cols_end)), list(range(slices_start, slices_end))
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
-        A = Vent1.build4DdataArray()
+        A = self.build4DdataArray()
         _,rr,cc,ss = self.cropToData(A[:,:,:,2],border = 5)
         A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
         A[:,:,:,0] = normalize(A[:,:,:,0]) # -- proton
@@ -393,7 +393,7 @@ class Vent_Analysis:
         A[:,:,:,2] = normalize(A[:,:,:,2]) # -- mask
         A[:,:,:,3] = normalize(A[:,:,:,3]) # -- N4 xenon
         A[:,:,:,4] = normalize(A[:,:,:,4]) # -- defectArray
-        mask_border = Vent1.mask_border[np.ix_(rr,cc,ss)]
+        mask_border = self.mask_border[np.ix_(rr,cc,ss)]
         rr = A.shape[0]
         cc = A.shape[1]
         ss = A.shape[2]
