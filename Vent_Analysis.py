@@ -193,10 +193,12 @@ class Vent_Analysis:
         self.VDP = 100*np.sum(self.defectArray)/np.sum(self.mask)
 
     def calculate_CI(self):
+        '''Calculates the Cluster Index Array and reports the subject's cluster index (CI)'''
         self.CIarray = CI.calculate_CI(self.defectArray,self.vox)
-        CVlist = np.sort(self.CIarray[self.defectArray==1])
+        CVlist = np.sort(self.CIarray[self.defectArray>0])
         index95 = int(0.95*len(CVlist))
         self.CI = CVlist[index95]
+        print(f'Calculated CI: {self.CI}')
         #return self.CIarray, self.CI
 
     def exportNifti(self,filepath=None,fileName = None):
