@@ -119,9 +119,9 @@ class Vent_Analysis:
         self.proton = pkl[0][:,:,:,0];print('0')
         self.HPvent = pkl[0][:,:,:,1];print('1')
         self.mask = pkl[0][:,:,:,2];print('2')
-        self.N4HPvent = pkl[0][:,:,:,3];print('3')
-        self.defectArray = pkl[0][:,:,:,4];print('4')
-        self.CIarray = pkl[0][:,:,:,5];print('5')
+        # self.N4HPvent = pkl[0][:,:,:,3];print('3')
+        # self.defectArray = pkl[0][:,:,:,4];print('4')
+        # self.CIarray = pkl[0][:,:,:,5];print('5')
         self.mask_border = self.calculateBorder(self.mask)
         try:
             self.version = pkl[1]['version'];print(f'Name: {self.version}')
@@ -133,7 +133,11 @@ class Vent_Analysis:
             self.PatientSex = pkl[1]['DICOMPatientSex']
             self.PatientSize = pkl[1]['DICOMPatientHeight']
             self.PatientWeight = pkl[1]['DICOMPatientWeight']
-            self.vox = pkl[1]['DICOMVoxelSize'];print(f'DICOMVoxelSize: {self.vox}')
+            self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
+                        float(pkl[1]['DICOMVoxelSize'][6:9]),
+                        float(pkl[1]['DICOMVoxelSize'][11:15])]
+            print(f'DICOMVoxelSize: {self.vox}')
+            print('\033[32mMetadata pull from Pickle Failed...\033[37m')
         except:
             print('\033[31mMetadata pull from Pickle Failed...\033[37m')
         
