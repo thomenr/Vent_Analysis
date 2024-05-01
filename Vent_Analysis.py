@@ -276,7 +276,7 @@ class Vent_Analysis:
             print('\033[31mNCould not Export 4D raw_HPvent Nifti...\033[37m')
 
     def build4DdataArray(self):
-        ''' Our arrays are: HPvent [0], mask  [1], N4HPvent [2], defectArray [3], CIarray [4]'''
+        ''' Our arrays are: Proton [0], HPvent [1], mask  [2], N4HPvent [3], defectArray [4], CIarray [5]'''
         dataArray = np.zeros((self.HPvent.shape[0],self.HPvent.shape[1],self.HPvent.shape[2],6))
         try:
             dataArray[:,:,:,0] = self.proton
