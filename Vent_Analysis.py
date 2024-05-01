@@ -16,6 +16,8 @@ import nibabel as nib # ------------------- for Nifti stuffs
 import PySimpleGUI as sg # ---------------- for GUI stuffs
 from PIL import Image, ImageTk # ---------- for arrayToImage conversion
 from datetime import date # --------------- So we can export the analysis date
+import pickle # --------------------------- For Pickling and unpickling data
+import json
 
 #------------------------------------------------------------------------------------
 # ----------- VENTILATION ANALYSIS CLASS DEFINITION ---------------------------------
@@ -44,15 +46,24 @@ class Vent_Analysis:
         calculateCI - calculates CI (imports CI functions)
         process_RAW - process the corresponding TWIX file associated
     """
-    def __init__(self,xenon_path = None, mask_dir = None, proton_path = None,xenon_array = None,mask_array=None,proton_array=None):
-        self.version = '240425_RPT' # - update this when changes are made!! - #
+    def __init__(self,xenon_path = None, 
+                 mask_path = None, 
+                 proton_path = None,
+                 xenon_array = None,
+                 mask_array=None,
+                 proton_array=None,
+                 pickle = None,
+                 pickle_path = None):
+        self.version = '240501_RPT' # - update this when changes are made!! - #
 
+        ## -- Was the xenon array provided or a path to its DICOM? -- ##
         if xenon_array is not None:
-            print('\033[34mXenon array provided\033[37m')
+            print(f'\033[34mXenon array provided: {xenon_array.shape}\033[37m')
             self.HPvent = xenon_array
-        else:
+
+        if xenon_path is not None:
             try:
-                print('\033[34mOpening Xenon DICOM\033[37m')
+                print('\033[34mXenon DICOM path provided. Opening DICOM...\033[37m')
                 self.ds, self.HPvent = self.openSingleDICOM(xenon_path)
             except:
                 print('\033[31mOpening Xenon DICOM failed...\033[37m')
@@ -63,29 +74,70 @@ class Vent_Analysis:
             except:
                 print('\033[31mPulling DICOM Header failed...\033[37m')
 
+        ## -- Was the mask array provided or a path to its DICOM folder? -- ##
         if mask_array is not None:
-            print('\033[34mMask array provided\033[37m')
+            print(f'\033[34mMask array provided: {mask_array.shape}\033[37m')
             self.mask = mask_array
             self.mask_border = self.calculateBorder(self.mask)
-        else:
+
+        if mask_path is not None:
             try:
                 print('\033[34mLoading Mask and calculating border\033[37m')
-                _, self.mask = self.openDICOMfolder(mask_dir)
+                _, self.mask = self.openDICOMfolder(mask_path)
                 self.mask_border = self.calculateBorder(self.mask)
             except:
                 print('\033[31mLoading Mask and border failed...\033[37m')
 
+        ## -- Was a proton array provided or a path to its DICOM? -- ##
         if proton_array is not None: 
+            print(f'\033[34mProton array provided: {proton_array.shape}\033[37m')
             self.proton = proton_array
-        else:
+
+        if proton_path is not None:
             if proton_path is not None: 
                 try:
-                    print('\033[34mOpening proton DICOM\033[37m')
+                    print('\033[34mProton DICOM Path provided. Opening...\033[37m')
                     self.proton_ds, self.proton = self.openSingleDICOM(proton_path)
                 except:
-                    print('\033[31mOpening Xenon DICOM failed...\033[37m')
+                    print('\033[31mOpening Proton DICOM failed...\033[37m')
+
+        ## -- Was a pickle or a pickle path provided? -- ##
+        if pickle_path is not None:
+            print(f'\033[34mPickle path provided. Loading...\033[37m')
+            try:
+                file = open(pickle_path, 'rb')
+                pkl = pickle.load(file)
+                self.extractPickle(pkl)
+            except:
+                print('\033[31mOpening Pickle from path and building arrays failed...\033[37m')
+
+        if pickle is not None:
+            self.extractPickle(pickle)
 
 
+    def extractPickle(self,pkl):
+        self.proton = pkl[0][:,:,:,0];print('0')
+        self.HPvent = pkl[0][:,:,:,1];print('1')
+        self.mask = pkl[0][:,:,:,2];print('2')
+        self.N4HPvent = pkl[0][:,:,:,3];print('3')
+        self.defectArray = pkl[0][:,:,:,4];print('4')
+        self.CIarray = pkl[0][:,:,:,5];print('5')
+        self.mask_border = self.calculateBorder(self.mask)
+        try:
+            self.version = pkl[1]['version'];print(f'Name: {self.version}')
+            self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
+            self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
+            self.StudyTime = pkl[1]['DICOMStudyTime']
+            self.PatientAge = pkl[1]['DICOMPatientAge']
+            self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
+            self.PatientSex = pkl[1]['DICOMPatientSex']
+            self.PatientSize = pkl[1]['DICOMPatientHeight']
+            self.PatientWeight = pkl[1]['DICOMPatientWeight']
+            self.vox = pkl[1]['DICOMVoxelSize'];print(f'DICOMVoxelSize: {self.vox}')
+        except:
+            print('\033[31mMetadata pull from Pickle Failed...\033[37m')
+        
+        
     def openSingleDICOM(self,dicom_path):        
         if dicom_path is None:
             root = tk.Tk()
@@ -448,22 +500,6 @@ class Vent_Analysis:
         except:
             string = string + (f'  \033[96mSex\033[37m: \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mBirth Date\033[37m: {self.PatientBirthDate}\n')
-        except:
-            string = string + (f'  \033[96mBirth Date\033[37m: \033[32mnot yet run\033[37m\n')
-
-        try:
-            string = string + (f'  \033[96mHeight\033[37m: {self.PatientSize}m ({int(np.floor(self.PatientSize*3.28084))}ft {int(12*(self.PatientSize*3.28084 - (self.PatientSize*3.28084 // 1)))}in)\n')
-        except:
-            string = string + (f'  \033[96mHeight\033[37m: \033[32mnot yet run\033[37m\n')
-
-        try:
-            string = string + (f'  \033[96mWeight\033[37m: {self.PatientWeight}kg ({int(self.PatientWeight*2.2046)} lbs)\n')
-        except:
-            string = string + (f'  \033[96mWeight\033[37m: \033[32mnot yet run\033[37m\n')
-
-
         string = string + (f'\033[92mDICOM DATA --\033[37m\n'
                 f'  \033[96mHPvent\033[37m array shape: {self.HPvent.shape}\n'
                 f'  \033[96mMask\033[37m lung vol: {np.round(np.sum(self.mask>0)*np.prod(self.vox)/1000/1000,1)} L\n')
@@ -574,8 +610,6 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 image_box_size = 50
 if __name__ == "__main__":
     import PySimpleGUI as sg
-    import json
-    import pickle
     version = '240410_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
@@ -722,20 +756,10 @@ if __name__ == "__main__":
 
 ## --------------- Load Pickle ------------------- ##       
         elif event == ('-LOADPICKLE-'):
-            text = sg.popup_get_text('Enter Pickle Path: ')
-            text = 'C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_240403/Mepo0000_240301.pkl'
-            with open(text, 'rb') as f:
-                pkl = pickle.load(f) 
-            Vent1 = Vent_Analysis(xenon_array=pkl[0][:,:,:,1],mask_array=pkl[0][:,:,:,2],proton_array=pkl[0][:,:,:,0])
-            Vent1.PatientName = pkl[2]['DICOMPatientName']
-            Vent1.StudyDate = pkl[2]['DICOMStudyDate']
-            Vent1.StudyTime = pkl[2]['DICOMStudyTime']
-            Vent1.PatientAge = pkl[2]['DICOMPatientAge']
-            Vent1.PatientBirthDate = pkl[2]['DICOMPatientBirthDate']
-            Vent1.PatientSex = pkl[2]['DICOMPatientSex']
-            Vent1.PatientSize = pkl[2]['DICOMPatientHeight']
-            Vent1.PatientWeight = pkl[2]['DICOMPatientWeight']
-            Vent1.vox = pkl[2]['DICOMVoxelSize']
+            text = sg.popup_get_text('Enter Pickle Path: ',default_text='//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/Mepo0029_231030_visit1_preAlb.pkl')
+            file = open(text, 'rb')
+            pkl = pickle.load(file)
+            Vent1 = Vent_Analysis(pickle = pkl)
 
             protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
             protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))

@@ -5,6 +5,7 @@ import time
 from tqdm import tqdm # ------ for progress bar
 import concurrent.futures # -- for parallel processing
 import logging
+import os
 
 def multi_which(A):
     '''Given a binary 3D array, returns all row/column/slice indices corresponding to 1's'''
@@ -40,7 +41,7 @@ def getSpherePix(vox, radius):
     
     '''
     try:
-        pxls = np.load(f'c:/PIRL/python/spherePx/{radius}.npy')
+        pxls = np.load(os.path.join(os.getcwd(),f'c:/PIRL/python/spherePx/{radius}.npy'),pxls)
         print(f'\n spherePx of {radius} exists and is being loaded...')
     except:
         print(f"\n Building List of Pixels in sphere of radius {radius}...")
@@ -56,7 +57,7 @@ def getSpherePix(vox, radius):
             y = Y[circle]
             z = Z[circle]
             pxls = np.vstack((pxls,np.column_stack((np.repeat(r,len(x)),x,y,z))))
-        np.save(f'c:/PIRL/python/spherePx/{radius}.npy',pxls)
+        np.save(os.path.join(os.getcwd(),f'c:/PIRL/python/spherePx/{radius}.npy'),pxls)
         print(f"Sphere Pixel List of length {pxls.shape[0]} calculation time: {np.round(time.time()-starttime,2)} seconds")
     return pxls
 
