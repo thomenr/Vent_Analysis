@@ -26,8 +26,10 @@ class Vent_Analysis:
     """Performs complete VDP analysis: N4Bias correction, normalization,
         defect calculation, and VDP calculation.
     INPUTS: 
+    2 inputs are required at minimum:
         HPvent - 3D array of ventilation image stack
         mask - 3D array of lung segmentation for HPvent (must match HPvent shape)
+    these inputs can be called either by direct input as numpy arrays, as paths to dicom files/folders, or as a pickle file to be unpickled
     CALCULATED ATTRIBUTES: 
         version - Date and author of most recent Vent_Analysis update
         N4HPvent - N4 bias corrected ventilation array
@@ -39,7 +41,7 @@ class Vent_Analysis:
         CI - the 95th percentile Cluster Value
     METHODS:
         __init__ - Opens the HP Vent and mask dicoms into self.HPvent, and self.mask
-        openSingleDICOM - opens a single 3D dicom file (for vent images)
+        openSingleDICOM - opens a single 3D dicom file (for vent or proton images)
         openDICOMfolder - opens all 2D dicoms in a folder (for mask images) into 3D array
         pullDICOMHeader - pulls useful DICOM header info into self variables
         runVDP - creates N4HPvent, defectarray (mean-anchored) and VDP
@@ -54,22 +56,39 @@ class Vent_Analysis:
                  proton_array=None,
                  pickle = None,
                  pickle_path = None):
-        self.version = '240501_RPT' # - update this when changes are made!! - #
-        self.proton = 0
-        self.N4HPvent = 0
-        self.defectArray = 0
-        self.CIarray = 0
-        self.PatientName = ''
-        self.PatientAge = ''
-        self.PatientBirthDate = ''
-        self.PatientSex = ''
-        self.StudyDate = ''
-        self.SeriesTime = ''
-        self.vox = 0
+        
+        self.version = '240503_RPT' # - update this when changes are made!! - #
+        self.proton = float("NaN")
+        self.N4HPvent = float("NaN")
+        self.defectArray = float("NaN")
+        self.CIarray = float("NaN")
+        self.vox = float("NaN")
         self.ds = ''
         self.twix = ''
-        self.raw_k = 0
-        self.raw_HPvent = 0
+        self.raw_k = float("NaN")
+        self.raw_HPvent = float("NaN")
+        self.metadata = {'PatientName': '',
+                        'PatientAge': '',
+                        'PatientDOB' : '',
+                        'PatientSex': '',
+                        'StudyDate': '',
+                        'SeriesTime': '',
+                        'Visit': '',
+                        'DE': float('NaN'),
+                        'SNR': float('NaN'),
+                        'VDP': float('NaN'),
+                        'VDP_lb': float('NaN'),
+                        'VDP_km': float('NaN'),
+                        'CI': float('NaN'),
+                        'FEV1': float("NaN"), 
+                        'FVC': float("NaN"),
+                        'Visit': '',
+                        'IRB': '',
+                        'Treatment': '',
+                        'TWIXprotocolName': '',
+                        'TWIXscanDateTime': ''
+                        }
+
 
         ## -- Was the xenon array provided or a path to its DICOM? -- ##
         if xenon_array is not None:
@@ -84,10 +103,10 @@ class Vent_Analysis:
                 print('\033[31mOpening Xenon DICOM failed...\033[37m')
 
             try:
-                print('\033[34mPulling DICOM Header\033[37m')
+                print('\033[34mPulling Xenon DICOM Header\033[37m')
                 self.pullDICOMHeader()
             except:
-                print('\033[31mPulling DICOM Header failed...\033[37m')
+                print('\033[31mPulling Xenon DICOM Header failed...\033[37m')
 
         ## -- Was the mask array provided or a path to its DICOM folder? -- ##
         if mask_array is not None:
@@ -101,7 +120,8 @@ class Vent_Analysis:
                 _, self.mask = self.openDICOMfolder(mask_path)
                 self.mask_border = self.calculateBorder(self.mask)
             except:
-                print('\033[31mLoading Mask and border failed...\033[37m')
+                print('\033[31mLoading Mask and calculating border failed...\033[37m')
+
 
         ## -- Was a proton array provided or a path to its DICOM? -- ##
         if proton_array is not None: 
@@ -116,45 +136,64 @@ class Vent_Analysis:
                 except:
                     print('\033[31mOpening Proton DICOM failed...\033[37m')
 
+
         ## -- Was a pickle or a pickle path provided? -- ##
         if pickle_path is not None:
             print(f'\033[34mPickle path provided. Loading...\033[37m')
             try:
                 file = open(pickle_path, 'rb')
                 pkl = pickle.load(file)
-                self.extractPickle(pkl)
+                self.extractPickle(pkl,version)
             except:
                 print('\033[31mOpening Pickle from path and building arrays failed...\033[37m')
 
         if pickle is not None:
-            self.extractPickle(pickle)
+            self.extractPickle(pickle,version)
 
 
-    def extractPickle(self,pkl):
-        self.proton = pkl[0][:,:,:,0]
-        self.HPvent = pkl[0][:,:,:,1]
-        self.mask = pkl[0][:,:,:,2]
-        # self.N4HPvent = pkl[0][:,:,:,3]
-        # self.defectArray = pkl[0][:,:,:,4]
-        # self.CIarray = pkl[0][:,:,:,5]
-        self.mask_border = self.calculateBorder(self.mask)
-        try:
-            self.version = pkl[1]['version'];print(f'Name: {self.version}')
-            self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
-            self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
-            self.StudyTime = pkl[1]['DICOMStudyTime']
-            self.PatientAge = pkl[1]['DICOMPatientAge']
-            self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
-            self.PatientSex = pkl[1]['DICOMPatientSex']
-            self.PatientSize = pkl[1]['DICOMPatientHeight']
-            self.PatientWeight = pkl[1]['DICOMPatientWeight']
-            self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
-                        float(pkl[1]['DICOMVoxelSize'][6:9]),
-                        float(pkl[1]['DICOMVoxelSize'][11:15])]
-            print(f'DICOMVoxelSize: {self.vox}')
-            print('\033[32mMetadata pull from Pickle Failed...\033[37m')
-        except:
-            print('\033[31mMetadata pull from Pickle Failed...\033[37m')
+    # def extractPickle(self,pkl,version):
+    #     self.proton = pkl[0][:,:,:,0]
+    #     self.HPvent = pkl[0][:,:,:,1]
+    #     self.mask = pkl[0][:,:,:,2]
+    #     self.N4HPvent = pkl[0][:,:,:,3]
+    #     self.defectArray = pkl[0][:,:,:,4]
+    #     self.CIarray = pkl[0][:,:,:,5]
+    #     self.mask_border = self.calculateBorder(self.mask)
+    #     try:
+    #         self.version = pkl[1]['version'];print(f'Name: {self.version}')
+    #         self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
+    #         self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
+    #         self.StudyTime = pkl[1]['DICOMStudyTime']
+    #         self.PatientAge = pkl[1]['DICOMPatientAge']
+    #         self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
+    #         self.PatientSex = pkl[1]['DICOMPatientSex']
+    #         self.PatientSize = pkl[1]['DICOMPatientHeight']
+    #         self.PatientWeight = pkl[1]['DICOMPatientWeight']
+    #         self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
+    #                     float(pkl[1]['DICOMVoxelSize'][6:9]),
+    #                     float(pkl[1]['DICOMVoxelSize'][11:15])]
+    #         print(f'DICOMVoxelSize: {self.vox}')
+    #         print('\033[32mMetadata pull from Pickle was Successful...\033[37m')
+    #     except:
+    #         print('\033[31mMetadata pull from Pickle Failed with pkl[1]...\033[37m')
+
+    #     try:
+    #         self.version = pkl[1]['version'];print(f'Name: {self.version}')
+    #         self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
+    #         self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
+    #         self.StudyTime = pkl[1]['DICOMStudyTime']
+    #         self.PatientAge = pkl[1]['DICOMPatientAge']
+    #         self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
+    #         self.PatientSex = pkl[1]['DICOMPatientSex']
+    #         self.PatientSize = pkl[1]['DICOMPatientHeight']
+    #         self.PatientWeight = pkl[1]['DICOMPatientWeight']
+    #         self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
+    #                     float(pkl[1]['DICOMVoxelSize'][6:9]),
+    #                     float(pkl[1]['DICOMVoxelSize'][11:15])]
+    #         print(f'DICOMVoxelSize: {self.vox}')
+    #         print('\033[32mMetadata pull from Pickle Failed...\033[37m')
+    #     except:
+    #         print('\033[31mMetadata pull from Pickle Failed...\033[37m')
         
         
     def openSingleDICOM(self,dicom_path):        
@@ -188,64 +227,63 @@ class Vent_Analysis:
 
     def pullDICOMHeader(self):
         try:
-            self.PatientName = self.ds.PatientName
+            self.metadata['PatientName'] = self.ds.PatientName
         except:
             print('\033[31mNo patientName\033[37m')
-            self.PatientName = 'None in Header'
+            self.metadata['PatientName'] = 'None in Header'
         try:
-            self.PatientAge = self.ds.PatientAge
+            self.metadata['PatientAge'] = self.ds.PatientAge
         except:
             print('\033[31mNo patientAge\033[37m')
-            self.PatientAge = 'None in Header'
+            self.metadata['PatientAge'] = 'None in Header'
         try:
-            self.PatientBirthDate = self.ds.PatientBirthDate
+            self.metadata['PatientDOB'] = self.ds.PatientBirthDate
         except:
-            print('\033[31mNo patientBirthDate\033[37m')
-            self.PatientBirthDate = 'None in Header'
+            print('\033[31mNo patientDOB\033[37m')
+            self.metadata['PatientDOB'] = 'None in Header'
         try:
-            self.PatientSize = self.ds.PatientSize
+            self.metadata['PatientSize'] = self.ds.PatientSize
         except:
             print('\033[31mNo patientSize\033[37m')
-            self.PatientSize = 'None in Header'
+            self.metadata['PatientSize'] = 'None in Header'
         try:
-            self.PatientWeight = self.ds.PatientWeight
+            self.metadata['PatientWeight'] = self.ds.PatientWeight
         except:
             print('\033[31mNo patientWeight\033[37m')
-            self.PatientWeight = 'None in Header'
+            self.metadata['PatientWeight'] = 'None in Header'
         try:
-            self.PatientSex = self.ds.PatientSex
+            self.metadata['PatientSex'] = self.ds.PatientSex
         except:
             print('\033[31mNo patientSex\033[37m')
-            self.PatientSex = 'None in Header'
+            self.metadata['PatientSex'] = 'None in Header'
         try:
-            self.StudyDate = self.ds.StudyDate
+            self.metadata['StudyDate'] = self.ds.StudyDate
         except:
             print('\033[31mNo StudyDate\033[37m')
-            self.StudyDate = 'None in Header'
+            self.metadata['StudyDate'] = 'None in Header'
         try:
-            self.StudyTime = self.ds.StudyTime
+            self.metadata['StudyTime'] = self.ds.StudyTime
         except:
             print('\033[31mNo StudyTime\033[37m')
-            self.StudyTime = 'None in Header'
+            self.metadata['StudyTime'] = 'None in Header'
         try:
-            self.SeriesTime = self.ds.SeriesTime
+            self.metadata['SeriesTime'] = self.ds.SeriesTime
         except:
             print('\033[31mNo SeriesTime\033[37m')
-            self.SeriesTime = 'None in Header'
+            self.metadata['SeriesTime'] = 'None in Header'
         for k in range(100):
             try:
                 self.vox = self.ds[0x5200, 0x9230][k]['PixelMeasuresSequence'][0].PixelSpacing
                 break
             except:
-                print(k)
                 if k == 99:
-                    print('Pixel Spacing not in correct place, please enter each dimension...')
+                    print('Pixel Spacing not in correct place in DICOM header, please enter each dimension...')
                     self.vox = [float(input()),float(input())]
 
         try:
             self.vox = [float(self.vox[0]),float(self.vox[1]),float(self.ds.SpacingBetweenSlices)]
         except:
-            print('Slice spacing not in correct position. Please enter manually:')
+            print('Slice spacing not in correct position in DICOM header. Please enter manually:')
             self.vox = [float(self.vox[0]),float(self.vox[1]),float(input())]
 
     def calculateBorder(self,A):
@@ -255,54 +293,62 @@ class Vent_Analysis:
             border[:,:,k] = (x[0]!=0)+(x[1]!=0)
         return border
 
-    def runVDP(self):
-        self.SNR = self.calculate_SNR(self.HPvent,self.mask) ## -- SNR of xenon DICOM images, not Raw, nor N4
+
+    def calculate_VDP(self,thresh=0.6):
+        self.metadata['SNR'] = self.calculate_SNR(self.HPvent,self.mask) ## -- SNR of xenon DICOM images, not Raw, nor N4
         self.N4HPvent = self.N4_bias_correction(self.HPvent,self.mask)
-        self.normMeanHPvent  = self.normalize_mean(self.N4HPvent,self.mask)
-        self.norm95HPvent = self.normalize_95th(self.N4HPvent,self.mask)
-        self.defectArray, self.defectBorder = self.calculateDefectArray(self.normMeanHPvent,self.mask,0.6)
-        self.VDP = 100*np.sum(self.defectArray)/np.sum(self.mask)
+
+        ## -- Mean-anchored Linear Binning [Thomen et al. 2015 Radiology] -- ##
+        mean_normalized_vent = np.divide(self.N4HPvent,np.mean(self.N4HPvent[self.mask>0]))
+        self.defectArray = np.zeros(mean_normalized_vent.shape)
+        for k in range(self.mask.shape[2]):
+            self.defectArray[:,:,k] = medfilt2d((mean_normalized_vent[:,:,k]<thresh)*self.mask[:,:,k])
+        self.defectBorder = self.calculateBorder(self.defectArray) == 1
+        self.metadata['VDP'] = 100*np.sum(self.defectArray)/np.sum(self.mask)
 
     def calculate_CI(self):
         '''Calculates the Cluster Index Array and reports the subject's cluster index (CI)'''
         self.CIarray = CI.calculate_CI(self.defectArray,self.vox)
         CVlist = np.sort(self.CIarray[self.defectArray>0])
         index95 = int(0.95*len(CVlist))
-        self.CI = CVlist[index95]
+        self.metadata['CI'] = CVlist[index95]
         print(f'Calculated CI: {self.CI}')
         #return self.CIarray, self.CI
 
     def exportNifti(self,filepath=None,fileName = None):
+        print('\033[34mexportNifti method called...\033[37m')
         if filepath == None:
             print('\033[94mWhere would you like to save your Niftis?\033[37m')
             filepath = tk.filedialog.askdirectory()
 
         if fileName == None:
-            fileName = str(self.PatientName).replace('^','_')
+            fileName = str(self.metadata['PatientName']).replace('^','_')
 
         try:
             dataArray = self.build4DdataArray()
             niImage = nib.Nifti1Image(dataArray, affine=np.eye(4))
+            niImage.header['pixdim'] = self.vox
             nib.save(niImage,os.path.join(filepath,fileName + '_dataArray.nii'))
+            print('\033[344D Nifti HPvent array saved\033[37m')
         except:
             print('\033[31mCould not Export 4D HPvent mask Nifti...\033[37m')
 
         try:
             niImage = nib.Nifti1Image(self.raw_HPvent, affine=np.eye(4))
             nib.save(niImage,os.path.join(filepath,fileName + '_raw_HPvent.nii'))
-            print('\033[92mraw_HPvent Nifti saved\033[37m')
+            print('\033[34mraw_HPvent Nifti saved\033[37m')
         except:
             print('\033[31mNCould not Export 4D raw_HPvent Nifti...\033[37m')
 
     def build4DdataArray(self):
         ''' Our arrays are: Proton [0], HPvent [1], mask  [2], N4HPvent [3], defectArray [4], CIarray [5]'''
         dataArray = np.zeros((self.HPvent.shape[0],self.HPvent.shape[1],self.HPvent.shape[2],6))
+        dataArray[:,:,:,1] = self.HPvent
+        dataArray[:,:,:,2] = self.mask
         try:
             dataArray[:,:,:,0] = self.proton
         except:
             print('\033[33mProton either does not exist or does not match Xenon array shape and was not added to 4D array\033[37m')
-        dataArray[:,:,:,1] = self.HPvent
-        dataArray[:,:,:,2] = self.mask
         try:
             dataArray[:,:,:,3] = self.N4HPvent
         except:
@@ -317,34 +363,34 @@ class Vent_Analysis:
             print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
             
-    def buildMetadata(self):
-        metadata = {
-            'version': str(self.version),
-            'DICOMPatientName': str(self.PatientName),
-            'DICOMPatientAge': str(self.PatientAge),
-            'DICOMPatientBirthDate': str(self.PatientBirthDate),
-            'DICOMPatientHeight': str(self.PatientSize),
-            'DICOMPatientWeight': str(self.PatientWeight),
-            'DICOMPatientSex': str(self.PatientSex),
-            'DICOMStudyDate': str(self.StudyDate),
-            'DICOMStudyTime': str(self.StudyTime),
-            'DICOMSeriesTime': str(self.SeriesTime),
-            'DICOMVoxelSize': str(self.vox),
-            }
-        try:
-            metadata['TWIXDateTime'] = str(self.scanDateTime)
-            metadata['TWIXProtocol'] = str(self.protocolName)
-        except:
-            print('Could not add TWIX params to metadata. Have you run process_RAW() yet?')
-        return metadata
+    # def buildMetadata(self):
+    #     metadata = {
+    #         'version': str(self.version),
+    #         'DICOMPatientName': str(self.PatientName),
+    #         'DICOMPatientAge': str(self.PatientAge),
+    #         'DICOMPatientBirthDate': str(self.PatientBirthDate),
+    #         'DICOMPatientHeight': str(self.PatientSize),
+    #         'DICOMPatientWeight': str(self.PatientWeight),
+    #         'DICOMPatientSex': str(self.PatientSex),
+    #         'DICOMStudyDate': str(self.StudyDate),
+    #         'DICOMStudyTime': str(self.StudyTime),
+    #         'DICOMSeriesTime': str(self.SeriesTime),
+    #         'DICOMVoxelSize': str(self.vox),
+    #         }
+    #     try:
+    #         metadata['TWIXDateTime'] = str(self.scanDateTime)
+    #         metadata['TWIXProtocol'] = str(self.protocolName)
+    #     except:
+    #         print('Could not add TWIX params to metadata. Have you run process_RAW() yet?')
+    #     return metadata
 
     def process_RAW(self,filepath=None):
         if filepath == None:
             print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
             filepath = tk.filedialog.askopenfilename()
         self.raw_twix = mapvbvd.mapVBVD(filepath)
-        self.scanDateTime = self.raw_twix.hdr.Config['PrepareTimestamp']
-        self.protocolName = self.raw_twix.hdr.Meas['tProtocolName']
+        self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
+        self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
         self.raw_twix.image.squeeze = True
         self.raw_K = self.raw_twix.image['']
         self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
@@ -371,10 +417,10 @@ class Vent_Analysis:
         print(f'Bias Correction Completed in {np.round(time.time()-start_time,2)} seconds')
         return corrected_HPvent
 
-    def normalize_mean(self,ventilation_array,mask):
-        '''returns HPvent array normalized to the whole-lung signal mean'''
-        normHPvent = np.divide(ventilation_array,np.mean(ventilation_array[mask>0]))
-        return normHPvent
+    # def normalize_mean(self,ventilation_array,mask):
+    #     '''returns HPvent array normalized to the whole-lung signal mean'''
+    #     normHPvent = np.divide(ventilation_array,np.mean(ventilation_array[mask>0]))
+    #     return normHPvent
     
     def calculate_SNR(self,A,FOVbuffer=20,manualNoise = False):
         '''Calculates SNR using all voxels in the mask as signal, and all 
@@ -399,26 +445,26 @@ class Vent_Analysis:
         self.SNR = SNR
         return SNR
     
-    def calculateDefectArray(self,ventilation_array,mask,thresh):
-        '''given a threshold (specified as a fraction of the whole-lung signal mean) create the 3D binary defect array'''
-        defectArray = np.zeros(ventilation_array.shape)
-        for k in range(mask.shape[2]):
-            defectArray[:,:,k] = medfilt2d((ventilation_array[:,:,k]<thresh)*mask[:,:,k])
-        defectBorder = self.calculateBorder(defectArray)
-        return (defectArray==1), (defectBorder==1)
+    # def calculateDefectArray(self,ventilation_array,mask,thresh):
+    #     '''given a threshold (specified as a fraction of the whole-lung signal mean) create the 3D binary defect array'''
+    #     defectArray = np.zeros(ventilation_array.shape)
+    #     for k in range(mask.shape[2]):
+    #         defectArray[:,:,k] = medfilt2d((ventilation_array[:,:,k]<thresh)*mask[:,:,k])
+    #     defectBorder = self.calculateBorder(defectArray)
+    #     return (defectArray==1), (defectBorder==1)
 
-    def normalize_95th(self,ventilation_array,mask):
-        voxlist = ventilation_array[mask>0]
-        voxlist.sort()
-        norm95HPvent = np.divide(ventilation_array,voxlist[int(0.95*len(voxlist))])
-        norm95HPvent[norm95HPvent>1] = 1
-        norm95HPvent = norm95HPvent*255
-        norm95HPvent = norm95HPvent.astype(np.uint8)
-        return norm95HPvent
+    # def normalize_95th(self,ventilation_array,mask):
+    #     voxlist = ventilation_array[mask>0]
+    #     voxlist.sort()
+    #     norm95HPvent = np.divide(ventilation_array,voxlist[int(0.95*len(voxlist))])
+    #     norm95HPvent[norm95HPvent>1] = 1
+    #     norm95HPvent = norm95HPvent*255
+    #     norm95HPvent = norm95HPvent.astype(np.uint8)
+    #     return norm95HPvent
     
-    def makeSlide(self,A):
-        plt.imshow(skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], padding_width=1, fill=0),cmap='gray')
-        plt.show()
+    # def makeSlide(self,A):
+    #     plt.imshow(skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], padding_width=1, fill=0),cmap='gray')
+    #     plt.show()
 
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
@@ -498,105 +544,96 @@ class Vent_Analysis:
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-A[:,:,s,4])
         plt.imsave(path, imageArray, cmap='gray')
 
-    def pickleMe(self,pickle_path):
+    def pickleMe(self,pickle_path=None):
         '''Here we build the pickle tuple and save in the specifed path'''
-            data_to_pickle = ('version': self.version,
-                              'Proton': self.proton,
-                              'HPvent': self.HPvent,
-                              'mask': self.mask
-                              'N4HPvent': self.N4HPvent,
-                              'defectArray': self.defectArray,
-                              'CIarray': self.CIarray,
-                              'PatientName': self.PatientName,
-                              'PatientAge': self.PatientAge,
-                              'PatientBirthDate': self.PatientBirthDate,
-                              'PatientSex':self.PatientSex,
-                              'StudyDate': self.StudyDate,
-                              'SeriesTime': self.SeriesTime,
-                              'VoxelDimension':self.vox,
-                              'DICOMHeader': self.ds,
-                              'TWIXHeader': self.twix,
-                              'kSpace': self.raw_k,
-                              'rawHPvent': self.raw_HPvent
-                              )
-            with open(pickle_path, 'wb') as file:
-                pickle.dump(data_to_pickle, file)
+        data_to_pickle = tuple(getattr(self, attr) for attr in vars(self))
+        if(pickle_path is None):
+            pickle_path = 'c:/PIRL/data/VentAnalysisPickle.pkl'
+        with open(pickle_path, 'wb') as file:
+            pickle.dump(data_to_pickle, file)
 
             
-    def __str__(self) -> str:
-        '''What do you want the class to print for you when you check it? Add that here!'''
-        string = (f'\033[35mVent_Analysis\033[37m class object version \033[94m{self.version} \033[37m\n')
+    # def __str__(self) -> str:
+    #     '''What do you want the class to print for you when you check it? Add that here!'''
+    #     string = (f'\033[35mVent_Analysis\033[37m class object version \033[94m{self.version} \033[37m\n')
 
-        string = string + (f'\033[92mSUBJECT DATA --\033[37m\n')
+    #     [string = string + (f'\033[92m{attr}\033[37m\n') for attr in vars(self)]
 
-        try:
-            string = string + (f'  \033[96mSubject\033[37m: {self.PatientName}\n')
-        except:
-            string = string + (f'  \033[96mSubject\033[37m: \033[32mnot yet run\033[37m\n')
+    #     # try:
+    #     #     string = string + (f'  \033[96mSubject\033[37m: {self.PatientName}\n')
+    #     # except:
+    #     #     string = string + (f'  \033[96mSubject\033[37m: \033[32mnot yet run\033[37m\n')
         
-        try:
-            string = string + (f'  \033[96mAge\033[37m: {self.PatientAge}\n')
-        except:
-            string = string + (f'  \033[96mAge\033[37m: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mAge\033[37m: {self.PatientAge}\n')
+        # except:
+        #     string = string + (f'  \033[96mAge\033[37m: \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mSex\033[37m: {self.PatientSex}\n')
-        except:
-            string = string + (f'  \033[96mSex\033[37m: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mSex\033[37m: {self.PatientSex}\n')
+        # except:
+        #     string = string + (f'  \033[96mSex\033[37m: \033[32mnot yet run\033[37m\n')
 
-        string = string + (f'\033[92mDICOM DATA --\033[37m\n'
-                f'  \033[96mHPvent\033[37m array shape: {self.HPvent.shape}\n'
-                f'  \033[96mMask\033[37m lung vol: {np.round(np.sum(self.mask>0)*np.prod(self.vox)/1000/1000,1)} L\n')
+        # string = string + (f'\033[92mDICOM DATA --\033[37m\n'
+        #         f'  \033[96mHPvent\033[37m array shape: {self.HPvent.shape}\n'
+        #         f'  \033[96mMask\033[37m lung vol: {np.round(np.sum(self.mask>0)*np.prod(self.vox)/1000/1000,1)} L\n')
 
-        try:
-            string = string + (f'  \033[96mDefect\033[37m volume: {np.round(np.sum(self.defectArray>0)*np.prod(self.vox)/1000/1000,1)} L\n')
-        except:
-            string = string + (f'  \033[96mDefect\033[37m volume: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mDefect\033[37m volume: {np.round(np.sum(self.defectArray>0)*np.prod(self.vox)/1000/1000,1)} L\n')
+        # except:
+        #     string = string + (f'  \033[96mDefect\033[37m volume: \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mVoxel Size\033[37m: {self.vox}\n')
-        except:
-            string = string + (f'  \033[96mVoxel Size\033[37m: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mVoxel Size\033[37m: {self.vox}\n')
+        # except:
+        #     string = string + (f'  \033[96mVoxel Size\033[37m: \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mSNR\033[37m = {np.round(self.SNR,2)}\n')
-        except:
-            string = string + (f'  \033[96mSNR\033[37m = \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mSNR\033[37m = {np.round(self.SNR,2)}\n')
+        # except:
+        #     string = string + (f'  \033[96mSNR\033[37m = \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mVDP\033[37m = {np.round(self.VDP,2)}\n')
-        except:
-            string = string + (f'  \033[96mVDP\033[37m = \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mVDP\033[37m = {np.round(self.VDP,2)}\n')
+        # except:
+        #     string = string + (f'  \033[96mVDP\033[37m = \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mCI\033[37m = {np.round(self.CI,2)}\n')
-        except:
-            string = string + (f'  \033[96mCI\033[37m = \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mCI\033[37m = {np.round(self.CI,2)}\n')
+        # except:
+        #     string = string + (f'  \033[96mCI\033[37m = \033[32mnot yet run\033[37m\n')
 
-        string = string + (f'\033[92mRAW DATA --\033[37m\n')
+        # string = string + (f'\033[92mRAW DATA --\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mkSpace shape\033[37m: {self.raw_K.shape}\n')
-        except:
-            string = string + (f'  \033[96mkSpace shape\033[37m: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mkSpace shape\033[37m: {self.raw_K.shape}\n')
+        # except:
+        #     string = string + (f'  \033[96mkSpace shape\033[37m: \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mScan Date/Time\033[37m: {self.scanDateTime}\n')
-        except:
-            string = string + (f'  \033[96mScan Date/Time\033[37m: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mScan Date/Time\033[37m: {self.scanDateTime}\n')
+        # except:
+        #     string = string + (f'  \033[96mScan Date/Time\033[37m: \033[32mnot yet run\033[37m\n')
 
-        try:
-            string = string + (f'  \033[96mProtocol\033[37m: {self.protocolName}\n')
-        except:
-            string = string + (f'  \033[96mProtocol\033[37m: \033[32mnot yet run\033[37m\n')
+        # try:
+        #     string = string + (f'  \033[96mProtocol\033[37m: {self.protocolName}\n')
+        # except:
+        #     string = string + (f'  \033[96mProtocol\033[37m: \033[32mnot yet run\033[37m\n')
 
 
-        return string
+        #return string
 
     def __repr__(self):
-        '''This is necessary to have the default printout be the dunder str above I think.'''
-        return str(self)
+        string = (f'\033[35mVent_Analysis\033[37m class object version \033[94m{self.version}\033[37m\n')
+        for attr, value in vars(self).items():
+            if type(value) is str or type(value) is int or type(value) is float:
+                string += (f'\033[92m {attr}: {value} \033[37m\n')
+            else:
+                string += (f'\033[92m {attr}: {type(value)} \033[37m\n')
+        return string
 
+
+Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
 
 ### ------------------------------------------------------------------------------------------------ ###
 ### ---------------------------------------- HELPER FUNCTIONS -------------------------------------- ###
@@ -657,7 +694,7 @@ if __name__ == "__main__":
     version = '240410_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
-    PIRLlogo = 'C:/PIRL/HPG/PIRLlogo.png'
+    PIRLlogo = os.path.join(os.getcwd(),'PIRLlogo.png')
     path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Proton:')],[sg.Text('Path to Twix:')]]
     path_column = [[sg.InputText(key='DICOMpath',default_text='C:/PIRL/data/MEPOXE0039/48522586xe',size=(200,200))],
                    [sg.InputText(key='MASKpath',default_text='C:/PIRL/data/MEPOXE0039/Mask',size=(200,200))],
@@ -784,19 +821,19 @@ if __name__ == "__main__":
         elif event == ('editPatientName'):
             text = sg.popup_get_text('Enter Subject ID: ')
             window['subject'].update(f'Subject: {text}')
-            Vent1.patientName = text
+            Vent1.metadata['PatientName'] = text
         elif event == ('editPatientAge'):
             text = sg.popup_get_text('Enter Patient Age: ')
             window['age'].update(f'Age: {text}')
-            Vent1.patientName = text
+            Vent1.metadata['PatientAge'] = text
         elif event == ('editPatientSex'):
             text = sg.popup_get_text('Enter Patient Sex: ')
             window['sex'].update(f'Sex: {text}')
-            Vent1.patientName = text
+            Vent1.metadata['PatientSex'] = text
         elif event == ('editPatientDOB'):
             text = sg.popup_get_text('Enter Patient DOB: ')
             window['dob'].update(f'DOB: {text}')
-            Vent1.patientName = text
+            Vent1.metadata['PatientDOB'] = text
 
 ## --------------- Load Pickle ------------------- ##       
         elif event == ('-LOADPICKLE-'):
