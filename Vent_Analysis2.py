@@ -418,7 +418,6 @@ class Vent_Analysis:
             #sub_array = hpg.get_subarray(self.HPvent[:,:,int(self.HPvent.shape[2]/2)])
             #noise = sub_array['A'].flatten()
         SNR = (np.mean(signal)-np.mean(noise))/np.std(noise)
-        self.SNR = SNR
         return SNR
     
     def array3D_to_montage2D(self,A):
