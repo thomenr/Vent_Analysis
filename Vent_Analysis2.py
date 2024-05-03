@@ -58,15 +58,15 @@ class Vent_Analysis:
                  pickle_path = None):
         
         self.version = '240503_RPT' # - update this when changes are made!! - #
-        self.proton = float("NaN")
-        self.N4HPvent = float("NaN")
-        self.defectArray = float("NaN")
-        self.CIarray = float("NaN")
-        self.vox = float("NaN")
+        self.proton = ''
+        self.N4HPvent = ''
+        self.defectArray = ''
+        self.CIarray = ''
+        self.vox = ''
         self.ds = ''
         self.twix = ''
-        self.raw_k = float("NaN")
-        self.raw_HPvent = float("NaN")
+        self.raw_k = ''
+        self.raw_HPvent = ''
         self.metadata = {'PatientName': '',
                         'PatientAge': '',
                         'PatientDOB' : '',
@@ -74,14 +74,14 @@ class Vent_Analysis:
                         'StudyDate': '',
                         'SeriesTime': '',
                         'Visit': '',
-                        'DE': float('NaN'),
-                        'SNR': float('NaN'),
-                        'VDP': float('NaN'),
-                        'VDP_lb': float('NaN'),
-                        'VDP_km': float('NaN'),
-                        'CI': float('NaN'),
-                        'FEV1': float("NaN"), 
-                        'FVC': float("NaN"),
+                        'DE': '',
+                        'SNR': '',
+                        'VDP': '',
+                        'VDP_lb': '',
+                        'VDP_km': '',
+                        'CI': '',
+                        'FEV1': '', 
+                        'FVC': '',
                         'Visit': '',
                         'IRB': '',
                         'Treatment': '',
@@ -363,26 +363,6 @@ class Vent_Analysis:
             print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
             
-    # def buildMetadata(self):
-    #     metadata = {
-    #         'version': str(self.version),
-    #         'DICOMPatientName': str(self.PatientName),
-    #         'DICOMPatientAge': str(self.PatientAge),
-    #         'DICOMPatientBirthDate': str(self.PatientBirthDate),
-    #         'DICOMPatientHeight': str(self.PatientSize),
-    #         'DICOMPatientWeight': str(self.PatientWeight),
-    #         'DICOMPatientSex': str(self.PatientSex),
-    #         'DICOMStudyDate': str(self.StudyDate),
-    #         'DICOMStudyTime': str(self.StudyTime),
-    #         'DICOMSeriesTime': str(self.SeriesTime),
-    #         'DICOMVoxelSize': str(self.vox),
-    #         }
-    #     try:
-    #         metadata['TWIXDateTime'] = str(self.scanDateTime)
-    #         metadata['TWIXProtocol'] = str(self.protocolName)
-    #     except:
-    #         print('Could not add TWIX params to metadata. Have you run process_RAW() yet?')
-    #     return metadata
 
     def process_RAW(self,filepath=None):
         if filepath == None:
@@ -417,10 +397,6 @@ class Vent_Analysis:
         print(f'Bias Correction Completed in {np.round(time.time()-start_time,2)} seconds')
         return corrected_HPvent
 
-    # def normalize_mean(self,ventilation_array,mask):
-    #     '''returns HPvent array normalized to the whole-lung signal mean'''
-    #     normHPvent = np.divide(ventilation_array,np.mean(ventilation_array[mask>0]))
-    #     return normHPvent
     
     def calculate_SNR(self,A,FOVbuffer=20,manualNoise = False):
         '''Calculates SNR using all voxels in the mask as signal, and all 
@@ -445,27 +421,6 @@ class Vent_Analysis:
         self.SNR = SNR
         return SNR
     
-    # def calculateDefectArray(self,ventilation_array,mask,thresh):
-    #     '''given a threshold (specified as a fraction of the whole-lung signal mean) create the 3D binary defect array'''
-    #     defectArray = np.zeros(ventilation_array.shape)
-    #     for k in range(mask.shape[2]):
-    #         defectArray[:,:,k] = medfilt2d((ventilation_array[:,:,k]<thresh)*mask[:,:,k])
-    #     defectBorder = self.calculateBorder(defectArray)
-    #     return (defectArray==1), (defectBorder==1)
-
-    # def normalize_95th(self,ventilation_array,mask):
-    #     voxlist = ventilation_array[mask>0]
-    #     voxlist.sort()
-    #     norm95HPvent = np.divide(ventilation_array,voxlist[int(0.95*len(voxlist))])
-    #     norm95HPvent[norm95HPvent>1] = 1
-    #     norm95HPvent = norm95HPvent*255
-    #     norm95HPvent = norm95HPvent.astype(np.uint8)
-    #     return norm95HPvent
-    
-    # def makeSlide(self,A):
-    #     plt.imshow(skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], padding_width=1, fill=0),cmap='gray')
-    #     plt.show()
-
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
 
@@ -552,88 +507,28 @@ class Vent_Analysis:
         with open(pickle_path, 'wb') as file:
             pickle.dump(data_to_pickle, file)
 
-            
-    # def __str__(self) -> str:
-    #     '''What do you want the class to print for you when you check it? Add that here!'''
-    #     string = (f'\033[35mVent_Analysis\033[37m class object version \033[94m{self.version} \033[37m\n')
-
-    #     [string = string + (f'\033[92m{attr}\033[37m\n') for attr in vars(self)]
-
-    #     # try:
-    #     #     string = string + (f'  \033[96mSubject\033[37m: {self.PatientName}\n')
-    #     # except:
-    #     #     string = string + (f'  \033[96mSubject\033[37m: \033[32mnot yet run\033[37m\n')
-        
-        # try:
-        #     string = string + (f'  \033[96mAge\033[37m: {self.PatientAge}\n')
-        # except:
-        #     string = string + (f'  \033[96mAge\033[37m: \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mSex\033[37m: {self.PatientSex}\n')
-        # except:
-        #     string = string + (f'  \033[96mSex\033[37m: \033[32mnot yet run\033[37m\n')
-
-        # string = string + (f'\033[92mDICOM DATA --\033[37m\n'
-        #         f'  \033[96mHPvent\033[37m array shape: {self.HPvent.shape}\n'
-        #         f'  \033[96mMask\033[37m lung vol: {np.round(np.sum(self.mask>0)*np.prod(self.vox)/1000/1000,1)} L\n')
-
-        # try:
-        #     string = string + (f'  \033[96mDefect\033[37m volume: {np.round(np.sum(self.defectArray>0)*np.prod(self.vox)/1000/1000,1)} L\n')
-        # except:
-        #     string = string + (f'  \033[96mDefect\033[37m volume: \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mVoxel Size\033[37m: {self.vox}\n')
-        # except:
-        #     string = string + (f'  \033[96mVoxel Size\033[37m: \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mSNR\033[37m = {np.round(self.SNR,2)}\n')
-        # except:
-        #     string = string + (f'  \033[96mSNR\033[37m = \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mVDP\033[37m = {np.round(self.VDP,2)}\n')
-        # except:
-        #     string = string + (f'  \033[96mVDP\033[37m = \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mCI\033[37m = {np.round(self.CI,2)}\n')
-        # except:
-        #     string = string + (f'  \033[96mCI\033[37m = \033[32mnot yet run\033[37m\n')
-
-        # string = string + (f'\033[92mRAW DATA --\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mkSpace shape\033[37m: {self.raw_K.shape}\n')
-        # except:
-        #     string = string + (f'  \033[96mkSpace shape\033[37m: \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mScan Date/Time\033[37m: {self.scanDateTime}\n')
-        # except:
-        #     string = string + (f'  \033[96mScan Date/Time\033[37m: \033[32mnot yet run\033[37m\n')
-
-        # try:
-        #     string = string + (f'  \033[96mProtocol\033[37m: {self.protocolName}\n')
-        # except:
-        #     string = string + (f'  \033[96mProtocol\033[37m: \033[32mnot yet run\033[37m\n')
-
-
-        #return string
 
     def __repr__(self):
         string = (f'\033[35mVent_Analysis\033[37m class object version \033[94m{self.version}\033[37m\n')
         for attr, value in vars(self).items():
-            if type(value) is str or type(value) is int or type(value) is float:
-                string += (f'\033[92m {attr}: {value} \033[37m\n')
+            if value is '':
+                string += (f'\033[31m {attr}: \033[37m\n')
+            elif type(value) is np.ndarray:
+                string += (f'\033[32m {attr}: \033[36m{value.shape} \033[37m\n')
+            elif type(value) is dict:
+                for attr2, value2 in value.items():
+                    if value2 is '':
+                        string += (f'   \033[31m {attr2}: \033[37m\n')
+                    else:
+                        string += (f'   \033[32m {attr2}: \033[36m{value2} \033[37m\n')
             else:
-                string += (f'\033[92m {attr}: {type(value)} \033[37m\n')
+                string += (f'\033[32m {attr}: \033[36m{type(value)} \033[37m\n')
         return string
 
 
 Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+Vent1
+
 
 ### ------------------------------------------------------------------------------------------------ ###
 ### ---------------------------------------- HELPER FUNCTIONS -------------------------------------- ###
