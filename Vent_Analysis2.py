@@ -10,14 +10,13 @@ from sys import getsizeof # --------------- To report twix object size
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
 import pydicom as dicom # ----------------- for openSingleDICOM and openDICOMFolder
-from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
+#from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
 import skimage.util # --------------------- for image montages
 import nibabel as nib # ------------------- for Nifti stuffs
 import PySimpleGUI as sg # ---------------- for GUI stuffs
 from PIL import Image, ImageTk # ---------- for arrayToImage conversion
-from datetime import date # --------------- So we can export the analysis date
 import pickle # --------------------------- For Pickling and unpickling data
-import json
+import json # ----------------------------- For saving header as json file
 
 #------------------------------------------------------------------------------------
 # ----------- VENTILATION ANALYSIS CLASS DEFINITION ---------------------------------
@@ -57,7 +56,7 @@ class Vent_Analysis:
                  pickle = None,
                  pickle_path = None):
         
-        self.version = '240503_RPT' # - update this when changes are made!! - #
+        self.version = '240504_RPT' # - update this when changes are made!! - #
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
@@ -65,11 +64,11 @@ class Vent_Analysis:
         self.vox = ''
         self.ds = ''
         self.twix = ''
-        self.raw_k = ''
-        self.raw_HPvent = ''
+        # self.raw_k = ''
+        # self.raw_HPvent = ''
         self.metadata = {'PatientName': '',
                         'PatientAge': '',
-                        'PatientDOB' : '',
+                        'PatientBirthDate' : '',
                         'PatientSex': '',
                         'StudyDate': '',
                         'SeriesTime': '',
@@ -85,8 +84,8 @@ class Vent_Analysis:
                         'Visit': '',
                         'IRB': '',
                         'Treatment': '',
-                        'TWIXprotocolName': '',
-                        'TWIXscanDateTime': ''
+                        # 'TWIXprotocolName': '',
+                        # 'TWIXscanDateTime': ''
                         }
 
 
@@ -226,51 +225,14 @@ class Vent_Analysis:
         return ds, mask
 
     def pullDICOMHeader(self):
-        try:
-            self.metadata['PatientName'] = self.ds.PatientName
-        except:
-            print('\033[31mNo patientName\033[37m')
-            self.metadata['PatientName'] = 'None in Header'
-        try:
-            self.metadata['PatientAge'] = self.ds.PatientAge
-        except:
-            print('\033[31mNo patientAge\033[37m')
-            self.metadata['PatientAge'] = 'None in Header'
-        try:
-            self.metadata['PatientDOB'] = self.ds.PatientBirthDate
-        except:
-            print('\033[31mNo patientDOB\033[37m')
-            self.metadata['PatientDOB'] = 'None in Header'
-        try:
-            self.metadata['PatientSize'] = self.ds.PatientSize
-        except:
-            print('\033[31mNo patientSize\033[37m')
-            self.metadata['PatientSize'] = 'None in Header'
-        try:
-            self.metadata['PatientWeight'] = self.ds.PatientWeight
-        except:
-            print('\033[31mNo patientWeight\033[37m')
-            self.metadata['PatientWeight'] = 'None in Header'
-        try:
-            self.metadata['PatientSex'] = self.ds.PatientSex
-        except:
-            print('\033[31mNo patientSex\033[37m')
-            self.metadata['PatientSex'] = 'None in Header'
-        try:
-            self.metadata['StudyDate'] = self.ds.StudyDate
-        except:
-            print('\033[31mNo StudyDate\033[37m')
-            self.metadata['StudyDate'] = 'None in Header'
-        try:
-            self.metadata['StudyTime'] = self.ds.StudyTime
-        except:
-            print('\033[31mNo StudyTime\033[37m')
-            self.metadata['StudyTime'] = 'None in Header'
-        try:
-            self.metadata['SeriesTime'] = self.ds.SeriesTime
-        except:
-            print('\033[31mNo SeriesTime\033[37m')
-            self.metadata['SeriesTime'] = 'None in Header'
+        infoList = ['PatientName','PatientAge','PatientBirthDate','PatientSize','PatientWeight','PatientSex','StudyDate','StudyTime','SeriesTime']
+        for elem in infoList:
+            try:
+                self.metadata[elem] = self.ds[elem].value
+            except:
+                print(f'\033[31mNo {elem}\033[37m')
+                self.metadata[elem] = ''
+
         for k in range(100):
             try:
                 self.vox = self.ds[0x5200, 0x9230][k]['PixelMeasuresSequence'][0].PixelSpacing
@@ -305,6 +267,7 @@ class Vent_Analysis:
             self.defectArray[:,:,k] = medfilt2d((mean_normalized_vent[:,:,k]<thresh)*self.mask[:,:,k])
         self.defectBorder = self.calculateBorder(self.defectArray) == 1
         self.metadata['VDP'] = 100*np.sum(self.defectArray)/np.sum(self.mask)
+        print('\033[32mcalculate_VDP ran successfully\033[37m')
 
     def calculate_CI(self):
         '''Calculates the Cluster Index Array and reports the subject's cluster index (CI)'''
@@ -363,20 +326,19 @@ class Vent_Analysis:
             print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
             
-
-    def process_RAW(self,filepath=None):
-        if filepath == None:
-            print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
-            filepath = tk.filedialog.askopenfilename()
-        self.raw_twix = mapvbvd.mapVBVD(filepath)
-        self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
-        self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
-        self.raw_twix.image.squeeze = True
-        self.raw_K = self.raw_twix.image['']
-        self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
-        for k in range(self.raw_K.shape[2]):
-            self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
-        self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
+    # def process_RAW(self,filepath=None):
+    #     if filepath == None:
+    #         print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
+    #         filepath = tk.filedialog.askopenfilename()
+    #     self.raw_twix = mapvbvd.mapVBVD(filepath)
+    #     self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
+    #     self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
+    #     self.raw_twix.image.squeeze = True
+    #     self.raw_K = self.raw_twix.image['']
+    #     self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
+    #     for k in range(self.raw_K.shape[2]):
+    #         self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
+    #     self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
 
     def N4_bias_correction(self,HPvent, mask):
         start_time = time.time()
@@ -420,6 +382,26 @@ class Vent_Analysis:
         SNR = (np.mean(signal)-np.mean(noise))/np.std(noise)
         return SNR
     
+
+    def dicom_to_dict(self, elem, include_private=False):
+        data_dict = {}
+        for sub_elem in elem:
+            if not include_private and sub_elem.tag.is_private:
+                continue
+            if sub_elem.name in ['Pixel Data']:
+                print('Found the PixelData - not including')
+                continue
+            if sub_elem.VR == "SQ":  # Sequence of items
+                data_dict[sub_elem.name] = [self.dicom_to_dict(item, include_private) for item in sub_elem.value]
+            else:
+                data_dict[sub_elem.name] = str(sub_elem.value)
+        return data_dict
+
+    def dicom_to_json(self, ds, json_path='c:/pirl/data/DICOMjson.json', include_private=True):
+        dicom_dict = self.dicom_to_dict(ds, include_private)
+        with open(json_path, 'w') as json_file:
+            json.dump(dicom_dict, json_file, indent=4)
+    
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
 
@@ -448,8 +430,6 @@ class Vent_Analysis:
         
         # Crop the array with the adjusted indices
         cropped_A = A[rows_start:rows_end, cols_start:cols_end, slices_start:slices_end]
-        
-        
         return cropped_A, list(range(rows_start, rows_end)), list(range(cols_start, cols_end)), list(range(slices_start, slices_end))
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
@@ -496,10 +476,14 @@ class Vent_Analysis:
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-A[:,:,s,4]) + A[:,:,s,4]
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]*(1-A[:,:,s,4])
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-A[:,:,s,4])
-        plt.imsave(path, imageArray, cmap='gray')
+        #plt.imsave(path, imageArray) # -- matplotlib command to save array as png
+        image = Image.fromarray(np.uint8(imageArray*255))  # Convert the numpy array to a PIL image
+        image.save(path, 'PNG')  # Save the image
+
 
     def pickleMe(self,pickle_path=None):
-        '''Here we build the pickle tuple and save in the specifed path'''
+        '''Here we build the pickle tuple and save in the specifed path.
+        The pickle contains all attributes in the Vent_Analysis object.'''
         data_to_pickle = tuple(getattr(self, attr) for attr in vars(self))
         if(pickle_path is None):
             pickle_path = 'c:/PIRL/data/VentAnalysisPickle.pkl'
@@ -527,6 +511,18 @@ class Vent_Analysis:
 
 Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
 Vent1
+#Vent1.calculate_VDP()
+#Vent1.screenShot()
+Vent1.dicom_to_json(Vent1.ds)
+
+
+
+
+
+
+
+
+
 
 
 ### ------------------------------------------------------------------------------------------------ ###
@@ -582,10 +578,12 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 ### ---------------------------------------- MAIN SCRIPT ------------------------------------------- ###
 ### ------------------------------------------------------------------------------------------------ ###
 
+
 image_box_size = 50
 if __name__ == "__main__":
     import PySimpleGUI as sg
-    version = '240410_RPT'
+    from datetime import date # -- So we can export the analysis date
+    version = '240504_RPT'
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     sg.theme('Default1')
     PIRLlogo = os.path.join(os.getcwd(),'PIRLlogo.png')
@@ -626,9 +624,7 @@ if __name__ == "__main__":
                            [sg.Button('',key='editProtocol',pad=(0,0)),sg.Text('Protocol:',key='twixprotocol',pad=(0,0))],
                            [sg.Button('',key='editPatientAge',pad=(0,0)),sg.Text('Age:',key='age',pad=(0,0))],
                            [sg.Button('',key='editPatientSex',pad=(0,0)),sg.Text('Sex:',key='sex',pad=(0,0))],
-                           [sg.Button('',key='editPatientDOB',pad=(0,0)),sg.Text('DOB:',key='dob',pad=(0,0))],
-                           [sg.Button('',key='editPatientHeight',pad=(0,0)),sg.Text('Height:',key='height',pad=(0,0))],
-                           [sg.Button('',key='editPatientWeight',pad=(0,0)),sg.Text('Weight:',key = 'weight',pad=(0,0))]]
+                           [sg.Button('',key='editPatientDOB',pad=(0,0)),sg.Text('DOB:',key='dob',pad=(0,0))],]
     dicom_data_column = [[sg.Text('DICOM Voxel Size:                                ',key = 'vox',pad=(0,0))],
                          [sg.Text('SNR:',key = 'snr',pad=(0,0))],
                          [sg.Text('VDP:',key = 'vdp',pad=(0,0))],
@@ -708,8 +704,6 @@ if __name__ == "__main__":
             window['genxeInputs'].update(visible=False)
             window['mepoInputs'].update(visible=False)
             window['clinicalInputs'].update(visible=True)
-        #elif event == ('clinicalRadio'):
-        #    window['clinicalInputs'].update(visible=True)
 
 ## --------------- Info Edit Buttons ------------------- ##
         elif event == ('editPatientName'):
@@ -747,8 +741,6 @@ if __name__ == "__main__":
             window['age'].update(f'Age: {Vent1.PatientAge}')
             window['sex'].update(f'Sex: {Vent1.PatientSex}')
             window['dob'].update(f'DOB: {Vent1.PatientBirthDate}')
-            window['height'].update(f'Height: {Vent1.PatientSize} [m]')
-            window['weight'].update(f'Weight: {Vent1.PatientWeight} [kg]')
             window['vox'].update(f'DICOM voxel Size: {Vent1.vox} [mm]')
             rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
             mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
@@ -779,8 +771,6 @@ if __name__ == "__main__":
                 window['age'].update(f'Age: ')
                 window['sex'].update(f'Sex: ')
                 window['dob'].update(f'DOB: ')
-                window['height'].update(f'Height: ')
-                window['weight'].update(f'Weight: ')
                 window['vox'].update(f'')
                 window['snr'].update(f'SNR:')
                 window['vdp'].update(f'VDP: ')
@@ -809,8 +799,6 @@ if __name__ == "__main__":
                 window['age'].update(f'Age: {Vent1.PatientAge}')
                 window['sex'].update(f'Sex: {Vent1.PatientSex}')
                 window['dob'].update(f'DOB: {Vent1.PatientBirthDate}')
-                window['height'].update(f'Height: {Vent1.PatientSize} [m]')
-                window['weight'].update(f'Weight: {Vent1.PatientWeight} [kg]')
                 window['vox'].update(f'DICOM voxel Size: {Vent1.vox} [mm]')
                 rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
                 mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
@@ -825,7 +813,7 @@ if __name__ == "__main__":
         elif event == ('-CALCVDP-'):
             try:
                 window['-STATUS-'].update("Calculating VDP...",text_color='blue')
-                Vent1.runVDP()
+                Vent1.calculate_VDP()
                 window['snr'].update(f'SNR: {np.round(Vent1.SNR,1)}')
                 window['vdp'].update(f'VDP: {np.round(Vent1.VDP,1)} [%]')
                 window['ventarrayshape'].update(f'Ventilation Array Shape: {np.round(Vent1.HPvent.shape)}')
@@ -887,8 +875,6 @@ if __name__ == "__main__":
             window['age'].update(f'Age: ')
             window['sex'].update(f'Sex: ')
             window['dob'].update(f'DOB: ')
-            window['height'].update(f'Height: ')
-            window['weight'].update(f'Weight: ')
             window['vox'].update(f'')
             window['snr'].update(f'SNR:')
             window['vdp'].update(f'VDP: ')
@@ -1062,7 +1048,7 @@ if __name__ == "__main__":
 
 
 '''Things to add (updated 3/27/2024):
- - Vent_Analysis class inputs either paths to data or the arrays themselves
+ - Vent_Analysis class inputs either paths to data or the arrays themselves (done 5/4/2024)
  - Output DICOM header info as JSON
  - get more header info (both TWIX and DICOM) into metadata variable
  - CI colormap output in screenshot
