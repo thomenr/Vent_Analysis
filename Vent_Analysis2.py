@@ -260,8 +260,9 @@ class Vent_Analysis:
             dataArray = self.build4DdataArray()
             niImage = nib.Nifti1Image(dataArray, affine=np.eye(4))
             #niImage.header['pixdim'] = self.vox
-            nib.save(niImage,os.path.join(filepath,fileName + '_dataArray.nii'))
-            print('\033[344D Nifti HPvent array saved\033[37m')
+            savepath = os.path.join(filepath,fileName + '_dataArray.nii')
+            nib.save(niImage,savepath)
+            print(f'\033[32mNifti HPvent array saved to {savepath}\033[37m')
         except:
             print('\033[31mCould not Export 4D HPvent mask Nifti...\033[37m')
 
@@ -287,20 +288,7 @@ class Vent_Analysis:
         except:
             print('\033[33mCIarray does not exist and was not added to 4D array\033[37m')
         return dataArray
-            
-    # def process_RAW(self,filepath=None):
-    #     if filepath == None:
-    #         print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
-    #         filepath = tk.filedialog.askopenfilename()
-    #     self.raw_twix = mapvbvd.mapVBVD(filepath)
-    #     self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
-    #     self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
-    #     self.raw_twix.image.squeeze = True
-    #     self.raw_K = self.raw_twix.image['']
-    #     self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
-    #     for k in range(self.raw_K.shape[2]):
-    #         self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
-    #     self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
+
 
     def N4_bias_correction(self,HPvent, mask):
         start_time = time.time()
@@ -351,7 +339,6 @@ class Vent_Analysis:
             if not include_private and sub_elem.tag.is_private:
                 continue
             if sub_elem.name in ['Pixel Data']:
-                print('Found the PixelData - not including')
                 continue
             if sub_elem.VR == "SQ":  # Sequence of items
                 data_dict[sub_elem.name] = [self.dicom_to_dict(item, include_private) for item in sub_elem.value]
@@ -363,6 +350,7 @@ class Vent_Analysis:
         dicom_dict = self.dicom_to_dict(ds, include_private)
         with open(json_path, 'w') as json_file:
             json.dump(dicom_dict, json_file, indent=4)
+        print(f"\033[32mJson file saved to {json_path}\033[37m")
     
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
@@ -441,14 +429,16 @@ class Vent_Analysis:
         #plt.imsave(path, imageArray) # -- matplotlib command to save array as png
         image = Image.fromarray(np.uint8(imageArray*255))  # Convert the numpy array to a PIL image
         image.save(path, 'PNG')  # Save the image
+        print(f'\033[32mScreenshot saved to {path}\033[37m')
 
 
 
-    def pickleMe(self, pickle_path='c:/PIRL/data/VentAnalysisPickle.pkl'):
+    def pickleMe(self, pickle_path):
         '''Uses dictionary comprehension to create a dictionary of all class attriutes, then saves as pickle'''
         pickle_dict = {attr: getattr(self, attr) for attr in vars(self)}
         with open(pickle_path, 'wb') as file:
             pickle.dump(pickle_dict, file)
+        print(f'\033[32mPickled dictionary saved to {pickle_path}\033[37m')
 
 
     def unPickleMe(self,pickle_dict):
@@ -532,6 +522,20 @@ class Vent_Analysis:
     #         print('\033[31mMetadata pull from Pickle Failed...\033[37m')
         
 
+    # def process_RAW(self,filepath=None):
+    #     if filepath == None:
+    #         print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
+    #         filepath = tk.filedialog.askopenfilename()
+    #     self.raw_twix = mapvbvd.mapVBVD(filepath)
+    #     self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
+    #     self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
+    #     self.raw_twix.image.squeeze = True
+    #     self.raw_K = self.raw_twix.image['']
+    #     self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
+    #     for k in range(self.raw_K.shape[2]):
+    #         self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
+    #     self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
+
 # def extract_attributes(attr_dict, parent_key='', sep='_'):
 #     """
 #     Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
@@ -556,45 +560,39 @@ class Vent_Analysis:
 #     return dict(items)
 
 
-
-### ------------------------------------------------------------------------------------------------ ###
-### ---------------------------------------- HELPER FUNCTIONS -------------------------------------- ###
-### ------------------------------------------------------------------------------------------------ ###
-
-def arrayToImage(A,size):
-    imgAr = Image.fromarray(A.astype(np.uint8))
-    imgAr = imgAr.resize(size)
-    image = ImageTk.PhotoImage(image=imgAr)
-    return(image)
-
-
-def normalize(x):
-    if (np.max(x) - np.min(x)) == 0:
-        return x
-    else:
-        return (x - np.min(x)) / (np.max(x) - np.min(x))
-
-def colorBinary(A,B):
-    A = normalize(A)
-    new = np.zeros((A.shape[0],A.shape[1],3))
-    new[:,:,0] = A*(B==0) + B
-    new[:,:,1] = A*(B==0)
-    new[:,:,2] = A*(B==0)
-    return new*255
-
-
-
 ### ------------------------------------------------------------------------------------------------ ###
 ### ---------------------------------------- MAIN SCRIPT ------------------------------------------- ###
 ### ------------------------------------------------------------------------------------------------ ###
 
-
-image_box_size = 50
 if __name__ == "__main__":
+    version = '240505_RPT'
+    image_box_size = 50
+    ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
+    
     import PySimpleGUI as sg
     from datetime import date # -- So we can export the analysis date
-    version = '240504_RPT'
-    ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
+
+    ## -- Helper Functions for GUI -- ##
+    def arrayToImage(A,size):
+        imgAr = Image.fromarray(A.astype(np.uint8))
+        imgAr = imgAr.resize(size)
+        image = ImageTk.PhotoImage(image=imgAr)
+        return(image)
+
+    def normalize(x):
+        if (np.max(x) - np.min(x)) == 0:
+            return x
+        else:
+            return (x - np.min(x)) / (np.max(x) - np.min(x))
+
+    def colorBinary(A,B):
+        A = normalize(A)
+        new = np.zeros((A.shape[0],A.shape[1],3))
+        new[:,:,0] = A*(B==0) + B
+        new[:,:,1] = A*(B==0)
+        new[:,:,2] = A*(B==0)
+        return new*255
+    
     sg.theme('Default1')
     PIRLlogo = os.path.join(os.getcwd(),'PIRLlogo.png')
     path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Proton:')],[sg.Text('Path to Twix:')]]
@@ -933,7 +931,7 @@ if __name__ == "__main__":
                 Vent1.metadata['DE'] = values['DE']
                 Vent1.metadata['FEV1'] = values['FEV1']
                 Vent1.metadata['FVC'] = values['FVC']
-                Vent1.metadata['IRB'] = values['IRB']
+                Vent1.metadata['IRB'] = IRB
                 Vent1.metadata['notes'] = values['notes']
             except:
                 window['-STATUS-'].update("Could not add GUI metadata values to Class metadata...",text_color='red')
