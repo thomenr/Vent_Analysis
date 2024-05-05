@@ -53,7 +53,7 @@ class Vent_Analysis:
                  xenon_array = None,
                  mask_array=None,
                  proton_array=None,
-                 pickle = None,
+                 pickle_dict = None,
                  pickle_path = None):
         
         self.version = '240504_RPT' # - update this when changes are made!! - #
@@ -66,13 +66,13 @@ class Vent_Analysis:
         self.twix = ''
         # self.raw_k = ''
         # self.raw_HPvent = ''
-        self.metadata = {'PatientName': '',
+        self.metadata = {'fileName': '',
+                        'PatientName': '',
                         'PatientAge': '',
                         'PatientBirthDate' : '',
                         'PatientSex': '',
                         'StudyDate': '',
                         'SeriesTime': '',
-                        'Visit': '',
                         'DE': '',
                         'SNR': '',
                         'VDP': '',
@@ -81,9 +81,10 @@ class Vent_Analysis:
                         'CI': '',
                         'FEV1': '', 
                         'FVC': '',
-                        'Visit': '',
+                        'visit': '',
                         'IRB': '',
-                        'Treatment': '',
+                        'treatment': '',
+                        'notes': ''
                         # 'TWIXprotocolName': '',
                         # 'TWIXscanDateTime': ''
                         }
@@ -138,62 +139,17 @@ class Vent_Analysis:
 
         ## -- Was a pickle or a pickle path provided? -- ##
         if pickle_path is not None:
-            print(f'\033[34mPickle path provided. Loading...\033[37m')
+            print(f'\033[34mPickle path provided: {pickle_path}. Loading...\033[37m')
             try:
-                file = open(pickle_path, 'rb')
-                pkl = pickle.load(file)
-                self.extractPickle(pkl,version)
+                with open(pickle_path, 'rb') as file:
+                    pickle_dict = pickle.load(file)
+                print(f'\033[32mPickle file successfully loaded.\033[37m')
             except:
                 print('\033[31mOpening Pickle from path and building arrays failed...\033[37m')
 
-        if pickle is not None:
-            self.extractPickle(pickle,version)
+        if pickle_dict is not None:
+            self.unPickleMe(pickle_dict)
 
-
-    # def extractPickle(self,pkl,version):
-    #     self.proton = pkl[0][:,:,:,0]
-    #     self.HPvent = pkl[0][:,:,:,1]
-    #     self.mask = pkl[0][:,:,:,2]
-    #     self.N4HPvent = pkl[0][:,:,:,3]
-    #     self.defectArray = pkl[0][:,:,:,4]
-    #     self.CIarray = pkl[0][:,:,:,5]
-    #     self.mask_border = self.calculateBorder(self.mask)
-    #     try:
-    #         self.version = pkl[1]['version'];print(f'Name: {self.version}')
-    #         self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
-    #         self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
-    #         self.StudyTime = pkl[1]['DICOMStudyTime']
-    #         self.PatientAge = pkl[1]['DICOMPatientAge']
-    #         self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
-    #         self.PatientSex = pkl[1]['DICOMPatientSex']
-    #         self.PatientSize = pkl[1]['DICOMPatientHeight']
-    #         self.PatientWeight = pkl[1]['DICOMPatientWeight']
-    #         self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
-    #                     float(pkl[1]['DICOMVoxelSize'][6:9]),
-    #                     float(pkl[1]['DICOMVoxelSize'][11:15])]
-    #         print(f'DICOMVoxelSize: {self.vox}')
-    #         print('\033[32mMetadata pull from Pickle was Successful...\033[37m')
-    #     except:
-    #         print('\033[31mMetadata pull from Pickle Failed with pkl[1]...\033[37m')
-
-    #     try:
-    #         self.version = pkl[1]['version'];print(f'Name: {self.version}')
-    #         self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
-    #         self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
-    #         self.StudyTime = pkl[1]['DICOMStudyTime']
-    #         self.PatientAge = pkl[1]['DICOMPatientAge']
-    #         self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
-    #         self.PatientSex = pkl[1]['DICOMPatientSex']
-    #         self.PatientSize = pkl[1]['DICOMPatientHeight']
-    #         self.PatientWeight = pkl[1]['DICOMPatientWeight']
-    #         self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
-    #                     float(pkl[1]['DICOMVoxelSize'][6:9]),
-    #                     float(pkl[1]['DICOMVoxelSize'][11:15])]
-    #         print(f'DICOMVoxelSize: {self.vox}')
-    #         print('\033[32mMetadata pull from Pickle Failed...\033[37m')
-    #     except:
-    #         print('\033[31mMetadata pull from Pickle Failed...\033[37m')
-        
         
     def openSingleDICOM(self,dicom_path):        
         if dicom_path is None:
@@ -255,6 +211,11 @@ class Vent_Analysis:
             border[:,:,k] = (x[0]!=0)+(x[1]!=0)
         return border
 
+    def normalize(self,x):
+        if (np.max(x) - np.min(x)) == 0:
+            return x
+        else:
+            return (x - np.min(x)) / (np.max(x) - np.min(x))
 
     def calculate_VDP(self,thresh=0.6):
         self.metadata['SNR'] = self.calculate_SNR(self.HPvent,self.mask) ## -- SNR of xenon DICOM images, not Raw, nor N4
@@ -283,7 +244,7 @@ class Vent_Analysis:
         CVlist = np.sort(self.CIarray[self.defectArray>0])
         index95 = int(0.95*len(CVlist))
         self.metadata['CI'] = CVlist[index95]
-        print(f'Calculated CI: {self.CI}')
+        print(f"Calculated CI: {self.metadata['CI']}")
         #return self.CIarray, self.CI
 
     def exportNifti(self,filepath=None,fileName = None):
@@ -298,18 +259,11 @@ class Vent_Analysis:
         try:
             dataArray = self.build4DdataArray()
             niImage = nib.Nifti1Image(dataArray, affine=np.eye(4))
-            niImage.header['pixdim'] = self.vox
+            #niImage.header['pixdim'] = self.vox
             nib.save(niImage,os.path.join(filepath,fileName + '_dataArray.nii'))
             print('\033[344D Nifti HPvent array saved\033[37m')
         except:
             print('\033[31mCould not Export 4D HPvent mask Nifti...\033[37m')
-
-        try:
-            niImage = nib.Nifti1Image(self.raw_HPvent, affine=np.eye(4))
-            nib.save(niImage,os.path.join(filepath,fileName + '_raw_HPvent.nii'))
-            print('\033[34mraw_HPvent Nifti saved\033[37m')
-        except:
-            print('\033[31mNCould not Export 4D raw_HPvent Nifti...\033[37m')
 
     def build4DdataArray(self):
         ''' Our arrays are: Proton [0], HPvent [1], mask  [2], N4HPvent [3], defectArray [4], CIarray [5]'''
@@ -444,16 +398,16 @@ class Vent_Analysis:
         A = self.build4DdataArray()
         _,rr,cc,ss = self.cropToData(A[:,:,:,2],border = 5)
         A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
-        A[:,:,:,0] = normalize(A[:,:,:,0]) # -- proton
+        A[:,:,:,0] = self.normalize(A[:,:,:,0]) # -- proton
         if normalize95:
             signalList = A[:,:,:,1].flatten()
             signalList.sort()
             A[:,:,:,1] = np.divide(A[:,:,:,1],signalList[int(len(signalList)*0.99)])
             A[:,:,:,1][A[:,:,:,1]>1] = 1
-        A[:,:,:,1] = normalize(A[:,:,:,1]) # -- raw xenon
-        A[:,:,:,2] = normalize(A[:,:,:,2]) # -- mask
-        A[:,:,:,3] = normalize(A[:,:,:,3]) # -- N4 xenon
-        A[:,:,:,4] = normalize(A[:,:,:,4]) # -- defectArray
+        A[:,:,:,1] = self.normalize(A[:,:,:,1]) # -- raw xenon
+        A[:,:,:,2] = self.normalize(A[:,:,:,2]) # -- mask
+        A[:,:,:,3] = self.normalize(A[:,:,:,3]) # -- N4 xenon
+        A[:,:,:,4] = self.normalize(A[:,:,:,4]) # -- defectArray
         mask_border = self.mask_border[np.ix_(rr,cc,ss)]
         rr = A.shape[0]
         cc = A.shape[1]
@@ -489,26 +443,30 @@ class Vent_Analysis:
         image.save(path, 'PNG')  # Save the image
 
 
-    def pickleMe(self,pickle_path=None):
-        '''Here we build the pickle tuple and save in the specifed path.
-        The pickle contains all attributes in the Vent_Analysis object.'''
-        data_to_pickle = tuple(getattr(self, attr) for attr in vars(self))
-        if(pickle_path is None):
-            pickle_path = 'c:/PIRL/data/VentAnalysisPickle.pkl'
+
+    def pickleMe(self, pickle_path='c:/PIRL/data/VentAnalysisPickle.pkl'):
+        '''Uses dictionary comprehension to create a dictionary of all class attriutes, then saves as pickle'''
+        pickle_dict = {attr: getattr(self, attr) for attr in vars(self)}
         with open(pickle_path, 'wb') as file:
-            pickle.dump(data_to_pickle, file)
+            pickle.dump(pickle_dict, file)
+
+
+    def unPickleMe(self,pickle_dict):
+        '''Given a pickled dictionary (yep, I actually named a variable pickle_dict), it will extract entries to class attributes'''
+        for attr, value in pickle_dict.items():
+            setattr(self, attr, value)
 
 
     def __repr__(self):
         string = (f'\033[35mVent_Analysis\033[37m class object version \033[94m{self.version}\033[37m\n')
         for attr, value in vars(self).items():
-            if value is '':
+            if value == '':
                 string += (f'\033[31m {attr}: \033[37m\n')
             elif type(value) is np.ndarray:
                 string += (f'\033[32m {attr}: \033[36m{value.shape} \033[37m\n')
             elif type(value) is dict:
                 for attr2, value2 in value.items():
-                    if value2 is '':
+                    if value2 == '':
                         string += (f'   \033[31m {attr2}: \033[37m\n')
                     else:
                         string += (f'   \033[32m {attr2}: \033[36m{value2} \033[37m\n')
@@ -516,14 +474,87 @@ class Vent_Analysis:
                 string += (f'\033[32m {attr}: \033[36m{type(value)} \033[37m\n')
         return string
 
+# #Some test code
+# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+# Vent1
+# Vent1.calculate_VDP()
+# Vent1.screenShot()
+# Vent1.dicom_to_json(Vent1.ds)
+# Vent1.metadata['VDP']
+# Vent1.metadata['VDP_lb']
+# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
-Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-Vent1
-Vent1.calculate_VDP()
-Vent1.screenShot()
-Vent1.dicom_to_json(Vent1.ds)
-Vent1.metadata['VDP']
-Vent1.metadata['VDP_lb']
+
+
+    # def extractPickle(self,pkl,version):
+    #     self.proton = pkl[0][:,:,:,0]
+    #     self.HPvent = pkl[0][:,:,:,1]
+    #     self.mask = pkl[0][:,:,:,2]
+    #     self.N4HPvent = pkl[0][:,:,:,3]
+    #     self.defectArray = pkl[0][:,:,:,4]
+    #     self.CIarray = pkl[0][:,:,:,5]
+    #     self.mask_border = self.calculateBorder(self.mask)
+    #     try:
+    #         self.version = pkl[1]['version'];print(f'Name: {self.version}')
+    #         self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
+    #         self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
+    #         self.StudyTime = pkl[1]['DICOMStudyTime']
+    #         self.PatientAge = pkl[1]['DICOMPatientAge']
+    #         self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
+    #         self.PatientSex = pkl[1]['DICOMPatientSex']
+    #         self.PatientSize = pkl[1]['DICOMPatientHeight']
+    #         self.PatientWeight = pkl[1]['DICOMPatientWeight']
+    #         self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
+    #                     float(pkl[1]['DICOMVoxelSize'][6:9]),
+    #                     float(pkl[1]['DICOMVoxelSize'][11:15])]
+    #         print(f'DICOMVoxelSize: {self.vox}')
+    #         print('\033[32mMetadata pull from Pickle was Successful...\033[37m')
+    #     except:
+    #         print('\033[31mMetadata pull from Pickle Failed with pkl[1]...\033[37m')
+
+    #     try:
+    #         self.version = pkl[1]['version'];print(f'Name: {self.version}')
+    #         self.PatientName = pkl[1]['DICOMPatientName'];print(f'Name: {self.PatientName}')
+    #         self.StudyDate = pkl[1]['DICOMStudyDate'];print(f'Study Date: {self.StudyDate}')
+    #         self.StudyTime = pkl[1]['DICOMStudyTime']
+    #         self.PatientAge = pkl[1]['DICOMPatientAge']
+    #         self.PatientBirthDate = pkl[1]['DICOMPatientBirthDate'];print(f'Patient BirthDate: {self.PatientBirthDate}')
+    #         self.PatientSex = pkl[1]['DICOMPatientSex']
+    #         self.PatientSize = pkl[1]['DICOMPatientHeight']
+    #         self.PatientWeight = pkl[1]['DICOMPatientWeight']
+    #         self.vox = [float(pkl[1]['DICOMVoxelSize'][1:4]),
+    #                     float(pkl[1]['DICOMVoxelSize'][6:9]),
+    #                     float(pkl[1]['DICOMVoxelSize'][11:15])]
+    #         print(f'DICOMVoxelSize: {self.vox}')
+    #         print('\033[32mMetadata pull from Pickle Failed...\033[37m')
+    #     except:
+    #         print('\033[31mMetadata pull from Pickle Failed...\033[37m')
+        
+
+# def extract_attributes(attr_dict, parent_key='', sep='_'):
+#     """
+#     Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
+    
+#     Args:
+#     - attr_dict (dict): The attribute dictionary to extract from.
+#     - parent_key (str): The base key to use for building key names for subattributes.
+#     - sep (str): The separator to use between nested keys.
+    
+#     Returns:
+#     - dict: A flat dictionary with all attributes and subattributes.
+#     """
+#     items = []
+#     for k, v in attr_dict.items():
+#         new_key = f"{parent_key}{sep}{k}" if parent_key else k
+#         if isinstance(v, dict):
+#             # If the value is a dictionary, recurse
+#             items.extend(extract_attributes(v, new_key, sep=sep).items())
+#         else:
+#             # Otherwise, add the attribute to the items list
+#             items.append((new_key, v))
+#     return dict(items)
+
 
 
 ### ------------------------------------------------------------------------------------------------ ###
@@ -551,28 +582,6 @@ def colorBinary(A,B):
     new[:,:,2] = A*(B==0)
     return new*255
 
-def extract_attributes(attr_dict, parent_key='', sep='_'):
-    """
-    Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
-    
-    Args:
-    - attr_dict (dict): The attribute dictionary to extract from.
-    - parent_key (str): The base key to use for building key names for subattributes.
-    - sep (str): The separator to use between nested keys.
-    
-    Returns:
-    - dict: A flat dictionary with all attributes and subattributes.
-    """
-    items = []
-    for k, v in attr_dict.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
-            # If the value is a dictionary, recurse
-            items.extend(extract_attributes(v, new_key, sep=sep).items())
-        else:
-            # Otherwise, add the attribute to the items list
-            items.append((new_key, v))
-    return dict(items)
 
 
 ### ------------------------------------------------------------------------------------------------ ###
@@ -660,11 +669,61 @@ if __name__ == "__main__":
 
     window = sg.Window(f'PIRL Ventilation Analysis -- {version}', layout, return_keyboard_events=True, margins=(0, 0), finalize=True, size= (1200,730))
 
-    window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-    window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-    window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-    window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-    window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+    def updateImages():
+            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            try:
+                protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
+                protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))
+                window['-PROTONIMAGE-'].update(data=protonMontageImage)
+            except:
+                window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+
+            try:
+                rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
+                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
+                rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
+                window['-RAWIMAGE-'].update(data=rawMontageImage)
+            except:
+                window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+
+            try:
+                N4Montage = Vent1.array3D_to_montage2D(Vent1.N4HPvent)
+                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
+                N4MontageImage = arrayToImage(colorBinary(N4Montage,mask_border),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
+                window['-N4IMAGE-'].update(data=N4MontageImage)
+            except:
+                window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+
+            try:
+                DefectMontage = Vent1.array3D_to_montage2D(Vent1.defectArray)
+                DefectMontageImage = arrayToImage(colorBinary(N4Montage,DefectMontage),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
+                window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
+            except:
+                window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+
+    def updateData():
+        if 'Vent1' in globals():
+            window['subject'].update(f"Subject: {Vent1.metadata['PatientName']}")
+            window['studydate'].update(f"Study Date: {Vent1.metadata['StudyDate']}")
+            window['studytime'].update(f"Study Time: {Vent1.metadata['StudyTime']}")
+            window['age'].update(f"Age: {Vent1.metadata['PatientAge']}")
+            window['sex'].update(f"Sex: {Vent1.metadata['PatientSex']}")
+            window['dob'].update(f"DOB: {Vent1.metadata['PatientBirthDate']}")
+            window['vox'].update(f"DICOM voxel Size: {Vent1.vox} [mm]")
+            window['snr'].update(f"SNR: {Vent1.metadata['SNR']}")
+            window['vdp'].update(f"VDP: {Vent1.metadata['VDP']}")
+            window['ventarrayshape'].update(f'Ventilation Array Shape: {Vent1.HPvent.shape}')
+            window['masklungvol'].update(f'Mask Lung Volume: {str(np.sum(Vent1.mask == 1)*np.prod(Vent1.vox)/1000000)} [L]')
+            try:
+                window['defectvolume'].update(f'Defect Volume: {str(np.sum(Vent1.defectArray == 1)*np.prod(Vent1.vox)/1000000)} [L]')
+                window['ci'].update(f"CI: {Vent1.metadata['CI']}")
+            except:
+                pass
+            window['twixdate'].update(f'Twix Date:')
+            window['twixprotocol'].update(f'Twix Protocol:')
+
+    updateImages()
+    updateData()
 
     while True:
         event, values = window.read()
@@ -676,18 +735,10 @@ if __name__ == "__main__":
 ## --------------- PLUS MINUS BUTTONS --------------------------- ##
         elif event == ('minus'):
             image_box_size = image_box_size-5
-            window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            updateImages()
         elif event == ('plus'):
             image_box_size = image_box_size+5
-            window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+            updateImages()
 
 ## --------------- STUDY SELECT RADIO BUTTONS ------------------- ##
         elif event == ('mepoRadio'):
@@ -726,29 +777,12 @@ if __name__ == "__main__":
 
 ## --------------- Load Pickle ------------------- ##       
         elif event == ('-LOADPICKLE-'):
-            text = sg.popup_get_text('Enter Pickle Path: ',default_text='//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/Mepo0029_231030_visit1_preAlb.pkl')
-            file = open(text, 'rb')
-            pkl = pickle.load(file)
-            Vent1 = Vent_Analysis(pickle = pkl)
-
-            protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
-            protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))
-            window['-PROTONIMAGE-'].update(data=protonMontageImage)
-            window['-STATUS-'].update("Vent_Analysis loaded",text_color='green')
+            pickle_path = sg.popup_get_text('Enter Pickle Path: ',default_text='//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/Mepo0029_231030_visit1_preAlb.pkl')
+            Vent1 = Vent_Analysis(pickle_path=pickle_path)
+            window['-STATUS-'].update("Vent_Analysis pickle loaded",text_color='green')
             window['-INITIALIZE-'].update(button_color = 'green')
-            window['subject'].update(f'Subject: {Vent1.PatientName}')
-            window['studydate'].update(f'Study Date: {Vent1.StudyDate}')
-            window['studytime'].update(f'Study Time: {Vent1.StudyTime}')
-            window['age'].update(f'Age: {Vent1.PatientAge}')
-            window['sex'].update(f'Sex: {Vent1.PatientSex}')
-            window['dob'].update(f'DOB: {Vent1.PatientBirthDate}')
-            window['vox'].update(f'DICOM voxel Size: {Vent1.vox} [mm]')
-            rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
-            mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
-            rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
-            #rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
-            window['-RAWIMAGE-'].update(data=rawMontageImage)
-            
+            updateData()
+            updateImages()
 
 ## --------------- INITIALIZE Button ------------------- ##
         elif event == ('-INITIALIZE-'):
@@ -762,25 +796,6 @@ if __name__ == "__main__":
             window['-EXPORT-'].update(button_color = 'lightgray')
             try:
                 del Vent1
-                window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-                window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-                window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-                window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-                window['subject'].update(f'Subject: ')
-                window['studydate'].update(f'Study Date: ')
-                window['studytime'].update(f'Study Time: ')
-                window['age'].update(f'Age: ')
-                window['sex'].update(f'Sex: ')
-                window['dob'].update(f'DOB: ')
-                window['vox'].update(f'')
-                window['snr'].update(f'SNR:')
-                window['vdp'].update(f'VDP: ')
-                window['ventarrayshape'].update(f'Ventilation Array Shape: ')
-                window['masklungvol'].update(f'Mask Lung Volume:')
-                window['defectvolume'].update(f'Defect Volume:')
-                window['ci'].update(f'CI:')
-                window['twixdate'].update(f'Twix Date:')
-                window['twixprotocol'].update(f'Twix Protocol:')
                 print('cleared Vent1')
             except:
                 print('cache already clean')
@@ -789,23 +804,10 @@ if __name__ == "__main__":
                     Vent1 = Vent_Analysis(DICOM_path,MASK_path)
                 else:
                     Vent1 = Vent_Analysis(DICOM_path,MASK_path,PROTON_path)
-                    protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
-                    protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))
-                    window['-PROTONIMAGE-'].update(data=protonMontageImage)
                 window['-STATUS-'].update("Vent_Analysis loaded",text_color='green')
                 window['-INITIALIZE-'].update(button_color = 'green')
-                window['subject'].update(f'Subject: {Vent1.PatientName}')
-                window['studydate'].update(f'Study Date: {Vent1.StudyDate}')
-                window['studytime'].update(f'Study Time: {Vent1.StudyTime}')
-                window['age'].update(f'Age: {Vent1.PatientAge}')
-                window['sex'].update(f'Sex: {Vent1.PatientSex}')
-                window['dob'].update(f'DOB: {Vent1.PatientBirthDate}')
-                window['vox'].update(f'DICOM voxel Size: {Vent1.vox} [mm]')
-                rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
-                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
-                rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
-                #rawMontageImage = arrayToImage(255*normalize(rawMontage),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
-                window['-RAWIMAGE-'].update(data=rawMontageImage)
+                updateData()
+                updateImages()
             except:
                 window['-STATUS-'].update("ERROR: Uhh you messed something up. Maybe check your DICOM and MASK paths?",text_color='red')
                 continue
@@ -815,22 +817,12 @@ if __name__ == "__main__":
             try:
                 window['-STATUS-'].update("Calculating VDP...",text_color='blue')
                 Vent1.calculate_VDP()
-                window['snr'].update(f'SNR: {np.round(Vent1.SNR,1)}')
-                window['vdp'].update(f'VDP: {np.round(Vent1.VDP,1)} [%]')
-                window['ventarrayshape'].update(f'Ventilation Array Shape: {np.round(Vent1.HPvent.shape)}')
-                window['masklungvol'].update(f'Mask Lung Volume: {np.round(np.sum(Vent1.mask>0)*np.prod(Vent1.vox)/1000/1000,1)} [L]')
-                window['defectvolume'].update(f'Defect Volume: {np.round(np.sum(Vent1.defectArray>0)*np.prod(Vent1.vox)/1000/1000,1)} [L]')
                 window['-STATUS-'].update("VDP Calculated",text_color='green')
                 window['-CALCVDP-'].update(button_color = 'green')
-                N4Montage = Vent1.array3D_to_montage2D(Vent1.N4HPvent)
-                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
-                N4MontageImage = arrayToImage(colorBinary(N4Montage,mask_border),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
-                window['-N4IMAGE-'].update(data=N4MontageImage)
-                DefectMontage = Vent1.array3D_to_montage2D(Vent1.defectArray)
-                DefectMontageImage = arrayToImage(colorBinary(N4Montage,DefectMontage),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
-                window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
+                updateImages()
+                updateData()
             except:
-                window['-STATUS-'].update("ERROR: VDP couldnt run for some reason...",text_color='red')
+                window['-STATUS-'].update("ERROR: VDP either couldnt run or be displayed for some reason...",text_color='red')
                 continue
 
 ## --------------- CALCULATE CI Button ------------------- ##
@@ -838,53 +830,39 @@ if __name__ == "__main__":
             try:
                 window['-STATUS-'].update("Calculating CI...",text_color='blue')
                 Vent1.calculate_CI()
-                window['ci'].update(f'CI: {np.round(Vent1.CI,1)} [%]')
                 window['-STATUS-'].update("CI Calculated successfully",text_color='green')
                 window['-CALCCI-'].update(button_color = 'green')
+                updateImages()
+                updateData()
             except:
                 window['-STATUS-'].update("ERROR: CI couldnt run for some reason...",text_color='red')
                 continue
 
 ## --------------- RUN TWIX Button ------------------- ##
         elif event == ('-RUNTWIX-'):
-            try:
-                TWIX_path = values['TWIXpath']
-                window['-STATUS-'].update("Processing TWIX file...",text_color='blue')
-                Vent1.process_RAW(TWIX_path)
-                window['-STATUS-'].update("TWIX Processed successfully",text_color='green')
-                window['-RUNTWIX-'].update(button_color = 'green')
-                TwixMontage = Vent1.array3D_to_montage2D(Vent1.raw_HPvent)
-                TwixMontageImage = arrayToImage(255*normalize(TwixMontage),(int(image_box_size*TwixMontage.shape[1]/TwixMontage.shape[0]),image_box_size))
-                window['-TWIXIMAGE-'].update(data=TwixMontageImage)
-                window['twixdate'].update(f'Twix Date: {Vent1.scanDateTime}')
-                window['twixprotocol'].update(f'Twix Protocol: {Vent1.protocolName}')
-            except:
-                window['-STATUS-'].update("ERROR: TWIX couldnt process for some reason...",text_color='red')
-                continue
+            pass
+            # try:
+            #     TWIX_path = values['TWIXpath']
+            #     window['-STATUS-'].update("Processing TWIX file...",text_color='blue')
+            #     Vent1.process_RAW(TWIX_path)
+            #     window['-STATUS-'].update("TWIX Processed successfully",text_color='green')
+            #     window['-RUNTWIX-'].update(button_color = 'green')
+            #     TwixMontage = Vent1.array3D_to_montage2D(Vent1.raw_HPvent)
+            #     TwixMontageImage = arrayToImage(255*normalize(TwixMontage),(int(image_box_size*TwixMontage.shape[1]/TwixMontage.shape[0]),image_box_size))
+            #     window['-TWIXIMAGE-'].update(data=TwixMontageImage)
+            #     window['twixdate'].update(f'Twix Date: {Vent1.scanDateTime}')
+            #     window['twixprotocol'].update(f'Twix Protocol: {Vent1.protocolName}')
+            # except:
+            #     window['-STATUS-'].update("ERROR: TWIX couldnt process for some reason...",text_color='red')
+            #     continue
 
 ## --------------- CLEAR CACHE Button ------------------- ##
         elif event == ('-CLEARCACHE-'):
+            try:
+                del Vent1
+            except:
+                pass
             print('Clearing Cache...')
-            window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
-            window['subject'].update(f'Subject: ')
-            window['studydate'].update(f'Study Date: ')
-            window['studytime'].update(f'Study Time: ')
-            window['age'].update(f'Age: ')
-            window['sex'].update(f'Sex: ')
-            window['dob'].update(f'DOB: ')
-            window['vox'].update(f'')
-            window['snr'].update(f'SNR:')
-            window['vdp'].update(f'VDP: ')
-            window['ventarrayshape'].update(f'Ventilation Array Shape: ')
-            window['masklungvol'].update(f'Mask Lung Volume:')
-            window['defectvolume'].update(f'Defect Volume:')
-            window['ci'].update(f'CI:')
-            window['twixdate'].update(f'Twix Date:')
-            window['twixprotocol'].update(f'Twix Protocol:')
             window['notes'].update('')
             window['-INITIALIZE-'].update(button_color = 'lightgray')
             window['-CALCVDP-'].update(button_color = 'lightgray')
@@ -897,12 +875,9 @@ if __name__ == "__main__":
             window['mepoInputs'].update(visible=False)
             window['clinicalRadio'].update(False)
             window['clinicalInputs'].update(visible=False)
+            updateData()
+            updateImages()
             window['-STATUS-'].update("Analysis Cache is cleared and ready for the next subject!...",text_color='blue')
-            try:
-                del Vent1
-                print('Vent1 cleared')
-            except:
-                print('Vent1 already cleared')
 
             
 
@@ -918,142 +893,76 @@ if __name__ == "__main__":
                 window['-STATUS-'].update("Don't forget to enter your Name or Initials at the very top right!...",text_color='red')
                 continue
 
+            # Did the user select an IRB??
+            if not values['genxeRadio'] and not values['mepoRadio'] and not values['clinicalRadio']:
+                window['-STATUS-'].update("Don't forget to select an IRB!...",text_color='red')
+                continue
+
+            # Create the EXPORT_path and fileName and populate class metadata dictionary with values from GUI input fields
             window['-STATUS-'].update("Exporting Data...",text_color='blue')
             today = date.today().strftime("%y%m%d")
             user = values['userName']
             targetPath = f'VentAnalysis_{user}_{today}/'
             EXPORT_path = os.path.join(values['exportpath'],targetPath)
-            errorMarker = []
-
-            # Make sure the user selects an IRB
-            if not values['genxeRadio'] and not values['mepoRadio'] and not values['clinicalRadio']:
-                window['-STATUS-'].update("Don't forget to select an IRB!...",text_color='red')
-                continue
-
-            # Create the fileName and declare variables from from Input Data
             treatment = 'none'
             visit = '0'
             if values['genxeRadio']:
-                fileName = f"Xe-{values['genxeID']}_{Vent1.StudyDate[2:]}"
-                if values['prealb']: fileName = f'{fileName}_preAlb';treatment = 'preAlb'
-                elif values['postalb']: fileName = f'{fileName}_postAlb';treatment = 'postAlb'
-                elif values['presil']: fileName = f'{fileName}_preSil';treatment = 'preSilo'
-                elif values['postsil']: fileName = f'{fileName}_postSil';treatment = 'postSil'
+                fileName = f"Xe-{values['genxeID']}_{Vent1.metadata['StudyDate'][2:]}"
+                if values['prealb']: fileName = f'{fileName}_preAlb';Vent1.metadata['treatment'] = 'preAlbuterol'
+                elif values['postalb']: fileName = f'{fileName}_postAlb';Vent1.metadata['treatment'] = 'postAlbuterol'
+                elif values['presil']: fileName = f'{fileName}_preSil';Vent1.metadata['treatment'] = 'preSildenafil'
+                elif values['postsil']: fileName = f'{fileName}_postSil';Vent1.metadata['treatment'] = 'postSildenafil'
             elif values['mepoRadio']:
-                fileName = f"Mepo{values['mepoID']}_{Vent1.StudyDate[2:]}"
-                if values['mepoVisit1']: fileName = f'{fileName}_visit1';visit = 1
-                elif values['mepoVisit2']: fileName = f'{fileName}_visit2';visit = 2
-                elif values['mepoVisit3']: fileName = f'{fileName}_visit3';visit = 3
-                if values['prealb_mepo']: fileName = f'{fileName}_preAlb';treatment = 'preAlb'
-                elif values['postalb_mepo']: fileName = f'{fileName}_postAlb';treatment = 'postAlb'
+                fileName = f"Mepo{values['mepoID']}_{Vent1.metadata['StudyDate'][2:]}"
+                if values['mepoVisit1']: fileName = f'{fileName}_visit1';Vent1.metadata['visit'] = 1
+                elif values['mepoVisit2']: fileName = f'{fileName}_visit2';Vent1.metadata['visit'] = 2
+                elif values['mepoVisit3']: fileName = f'{fileName}_visit3';Vent1.metadata['visit'] = 3
+                if values['prealb_mepo']: fileName = f'{fileName}_preAlb';Vent1.metadata['treatment'] = 'preAlb'
+                elif values['postalb_mepo']: fileName = f'{fileName}_postAlb';Vent1.metadata['treatment'] = 'postAlb'
             elif values['clinicalRadio']:
-                fileName = f"Clinical_{values['clinicalID']}_{Vent1.StudyDate[2:]}_visit{values['clinicalvisitnumber']}"
-                if values['singlesession']: fileName = f'{fileName}_singlesession';treatment = 'none'
-                elif values['prealb_clin']: fileName = f'{fileName}_preAlb';treatment = 'preAlb'
-                elif values['postalb_clin']: fileName = f'{fileName}_postAlb';treatment = 'postAlb'
-                
+                fileName = f"Clinical_{values['clinicalID']}_{Vent1.metadata['StudyDate'][2:]}_visit{values['clinicalvisitnumber']}"
+                if values['singlesession']: fileName = f'{fileName}_singlesession';Vent1.metadata['treatment'] = 'none'
+                elif values['prealb_clin']: fileName = f'{fileName}_preAlb';Vent1.metadata['treatment'] = 'preAlbuterol'
+                elif values['postalb_clin']: fileName = f'{fileName}_postAlb';Vent1.metadata['treatment'] = 'postAlbuterol'
             print(f'-- FileName: {fileName} --')
             print(f'-- FilePath: {EXPORT_path} --')
-
-            # Create the Export directory
             if not os.path.isdir(EXPORT_path):
                 os.makedirs(EXPORT_path)
-
-            # 1 - build the METADATA as a dictionary 'metadata'
             try:
-                window['-STATUS-'].update("Building Metadata...",text_color='blue')
-                print('\033[34mBuilding Metadata..\033[37m')
-                metadata = Vent1.buildMetadata()
-                metadata['visit'] = visit
-                metadata['treatment'] = treatment
-                metadata['fileName'] = fileName
-                metadata['DE'] = values['DE']
-                metadata['FEV1'] = values['FEV1']
-                metadata['FVC'] = values['FVC']
-                metadata['IRB'] = IRB
-                metadata['SNR'] = Vent1.SNR
-                metadata['VDP'] = Vent1.VDP
-                metadata['notes'] = values['notes']
-                metadata['LungVolume'] = str(np.round(np.sum(Vent1.mask>0)*np.prod(Vent1.vox)/1000/1000,1))
-                metadata['DefectVolume'] = str(np.round(np.sum(Vent1.defectArray>0)*np.prod(Vent1.vox)/1000/1000,1))
+                Vent1.metadata['fileName'] = fileName
+                Vent1.metadata['DE'] = values['DE']
+                Vent1.metadata['FEV1'] = values['FEV1']
+                Vent1.metadata['FVC'] = values['FVC']
+                Vent1.metadata['IRB'] = values['IRB']
+                Vent1.metadata['notes'] = values['notes']
             except:
-                print('\033[31mError building metadata...\033[37m')
+                window['-STATUS-'].update("Could not add GUI metadata values to Class metadata...",text_color='red')
+                print('\033[31mError adding GUI data to class metadata...\033[37m')
 
-            try:
-                metadata['CI'] = str(Vent1.CI)
-            except:
-                print('\033[33mNoCI to add to metadata...\033[37m')
-
-
-            # 2 - build the 4D data arrays into 'dataArray' for DICOM data and 'twixArray' for twix data
-            dataArray = Vent1.build4DdataArray()
-            try:
-                twixArray = np.zeros((Vent1.raw_HPvent.shape[0],Vent1.raw_HPvent.shape[1],Vent1.raw_HPvent.shape[2],2)).astype(np.complex128)
-                twixArray[:,:,:,0] = Vent1.raw_HPvent
-                twixArray[:,:,:,1] = np.transpose(Vent1.raw_K,(1,0,2))
-            except:
-                print("\033[33mCould not build the twixArray - guess you didn't want to include a TWIX?\033[37m")
-                
-            # 3 - Export the 4D dataArray as a Nifti
+            #Export Nifti Arrays, DICOM header json, Class pickle, and screenshot
             Vent1.exportNifti(EXPORT_path,fileName)
-
-            # 4 - Save TWIX Header to JSON
-            try:
-                twix_header = Vent1.raw_twix
-            except:
-                print('Could not load the twix header')
-            try:
-                del twix_header['image']
-            except:
-                print('No Twix image to delete from header')
-            try:
-                with open(os.path.join(EXPORT_path,f'{fileName}_TWIXHEADER.json'), 'w') as fp:
-                    json.dump(extract_attributes(twix_header), fp,indent=2)
-                print('\033[35mTWIX JSON header saved!\033[37m')
-            except:
-                errorMarker = np.append(errorMarker,5)
-                print('\033[31mError saving JSON header. Was the TWIX processed?...\033[37m')
-
-            # 4 - Save metadata to JSON file
-            try:
-                with open(os.path.join(EXPORT_path,f'{fileName}_METADATA.json'), 'w') as fp:
-                    json.dump(metadata, fp,indent=2)
-                print('\033[35mMetadata JSON header saved!\033[37m')
-            except:
-                errorMarker = np.append(errorMarker,5)
-                print('\033[31mError saving metadata...\033[37m')
-
-            # 5 - Pickle and save the data!
-            print(metadata)
-            try:
-                data_to_pickle = (dataArray,twixArray,metadata)
-            except:
-                data_to_pickle = (dataArray,metadata)
-                print('No twixArray was included.')
-            with open(os.path.join(EXPORT_path, f'{fileName}.pkl'), 'wb') as file:
-                pickle.dump(data_to_pickle, file)
+            Vent1.dicom_to_json(Vent1.ds, json_path=os.path.join(EXPORT_path,f'{fileName}.json'))
+            Vent1.pickleMe(pickle_path=os.path.join(EXPORT_path,f'{fileName}.pkl'))
+            Vent1.screenShot(path=os.path.join(EXPORT_path,f'{fileName}.png'))
             window['-STATUS-'].update("Data Successfully Exported...",text_color='green')
 
             if values['-ARCHIVE-'] == True:
                 if os.path.isdir(ARCHIVE_path):
-                    with open(os.path.join(ARCHIVE_path, f'{fileName}.pkl'), 'wb') as file:
-                        pickle.dump(data_to_pickle, file)
+                    Vent1.pickleMe(pickle_path=os.path.join(ARCHIVE_path,f'{fileName}.pkl'))
                     window['-STATUS-'].update("Data Successfully Exported and Archived...",text_color='green')
                 else:
                     window['-STATUS-'].update("Data Successfully Exported but not Archived...",text_color='orange')
                     print("Cant Archive because the path doesn't exist...")
 
-            #6 - save a screenshot
-            Vent1.screenShot(path=f'{EXPORT_path}_{fileName}.png')
+
             
 
 
 '''Things to add (updated 3/27/2024):
  - Vent_Analysis class inputs either paths to data or the arrays themselves (done 5/4/2024)
- - Output DICOM header info as JSON
- - get more header info (both TWIX and DICOM) into metadata variable
+ - Output DICOM header info as JSON (done)
  - CI colormap output in screenshot
- - Multiple VDPs calculated (linear binning, k-means)
+ - Multiple VDPs calculated (linear binning, k-means) (LB done)
  - show histogram?
  - edit mask
  - automatic segmentation using proton (maybe DL this?)

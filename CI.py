@@ -41,10 +41,10 @@ def getSpherePix(vox, radius):
     
     '''
     try:
-        pxls = np.load(os.path.join(os.getcwd(),f'{radius}.npy'),pxls)
+        pxls = np.load(os.path.join(os.getcwd(),f'{radius}.npy'))
         print(f'\n spherePx of {radius} exists and is being loaded...')
     except:
-        print(f"\n Building List of Pixels in sphere of radius {radius}...")
+        print(f"\n Could not find {os.path.join(os.getcwd(),f'{radius}.npy')}. Building List of Pixels in sphere of radius {radius}...")
         radius = int(radius)
         starttime = time.time()
         vox = vox/np.min(vox)
