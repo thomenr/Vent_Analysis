@@ -1,22 +1,23 @@
-## -- PIRL Ventilation Image Analysis Pipeline, RPT, 3/19/2024, version 240319_RPT -- ##
+## -- PIRL Ventilation Image Analysis Pipeline -- ##
+## -- RPT, 5/5/2024 -- ##
+import CI # ------------------------------- for calculateCI
+import json # ----------------------------- For saving header as json file
+import nibabel as nib # ------------------- for Nifti stuffs
 import numpy as np
 import os
+import pickle # --------------------------- For Pickling and unpickling data
+from PIL import Image, ImageTk # ---------- for arrayToImage conversion
+import pydicom as dicom # ----------------- for openSingleDICOM and openDICOMFolder
 from scipy.signal import medfilt2d # ------ for calculateVDP
-import time # ----------------------------- for calculateVDP
 import SimpleITK as sitk # ---------------- for N4 Bias Correection
-import CI # ------------------------------- for calculateCI
-import mapvbvd # -------------------------- for process_Raw
+import skimage.util # --------------------- for image montages
 from sys import getsizeof # --------------- To report twix object size
+import time # ----------------------------- for calculateVDP
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
-import pydicom as dicom # ----------------- for openSingleDICOM and openDICOMFolder
+#import mapvbvd # -------------------------- for process_Raw
 #from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
-import skimage.util # --------------------- for image montages
-import nibabel as nib # ------------------- for Nifti stuffs
-import PySimpleGUI as sg # ---------------- for GUI stuffs
-from PIL import Image, ImageTk # ---------- for arrayToImage conversion
-import pickle # --------------------------- For Pickling and unpickling data
-import json # ----------------------------- For saving header as json file
+
 
 #------------------------------------------------------------------------------------
 # ----------- VENTILATION ANALYSIS CLASS DEFINITION ---------------------------------
