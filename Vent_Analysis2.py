@@ -261,12 +261,20 @@ class Vent_Analysis:
         self.N4HPvent = self.N4_bias_correction(self.HPvent,self.mask)
 
         ## -- Mean-anchored Linear Binning [Thomen et al. 2015 Radiology] -- ##
-        mean_normalized_vent = np.divide(self.N4HPvent,np.mean(self.N4HPvent[self.mask>0]))
+        signal_list = sorted(self.N4HPvent[self.mask>0])
+        mean_normalized_vent = np.divide(self.N4HPvent,np.mean(signal_list))
         self.defectArray = np.zeros(mean_normalized_vent.shape)
         for k in range(self.mask.shape[2]):
             self.defectArray[:,:,k] = medfilt2d((mean_normalized_vent[:,:,k]<thresh)*self.mask[:,:,k])
         self.defectBorder = self.calculateBorder(self.defectArray) == 1
         self.metadata['VDP'] = 100*np.sum(self.defectArray)/np.sum(self.mask)
+
+        ## -- Linear Binning [Mu He, 2016] -- ##
+        norm95th_vent = np.divide(self.N4HPvent,signal_list[int(len(signal_list)*.99)])
+        self.defectArrayLB = ((norm95th_vent<=0.16)*1 + (norm95th_vent>0.16)*(norm95th_vent<=0.34)*2 + (norm95th_vent>0.34)*(norm95th_vent<=0.52)*3 + (norm95th_vent>0.52)*(norm95th_vent<=0.7)*4 + (norm95th_vent>0.7)*(norm95th_vent<=0.88)*5 + (norm95th_vent>0.88)*6)*self.mask
+        self.metadata['VDP_lb'] = 100*np.sum((self.defectArrayLB == 1)*1 + (self.defectArrayLB == 2)*1)/np.sum(self.mask)
+
+        ## -- K-Means [Kirby, 2012] -- ##
         print('\033[32mcalculate_VDP ran successfully\033[37m')
 
     def calculate_CI(self):
@@ -511,18 +519,11 @@ class Vent_Analysis:
 
 Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
 Vent1
-#Vent1.calculate_VDP()
-#Vent1.screenShot()
+Vent1.calculate_VDP()
+Vent1.screenShot()
 Vent1.dicom_to_json(Vent1.ds)
-
-
-
-
-
-
-
-
-
+Vent1.metadata['VDP']
+Vent1.metadata['VDP_lb']
 
 
 ### ------------------------------------------------------------------------------------------------ ###
