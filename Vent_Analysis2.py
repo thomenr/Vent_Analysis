@@ -63,7 +63,7 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '240504_RPT' # - update this when changes are made!! - #
+        self.version = '240506_RPT' # - update this when changes are made!! - #
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
