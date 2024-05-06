@@ -376,13 +376,13 @@ class Vent_Analysis:
             RGB[:,:,:,0] = BW*(self.defectArray==0) + 255*(self.defectArray==1)
             RGB[:,:,:,1] = BW*(self.defectArray==0)
             RGB[:,:,:,2] = BW*(self.defectArray==0)
-            RGB = np.transpose(RGB,axes = (2,0,1,3))
+            RGB = np.transpose(RGB,axes = (2,0,1,3)) # first dimension must always be slices for DICOM export
             ds.PhotometricInterpretation = 'RGB'
             ds.SamplesPerPixel = 3
             ds.Rows, ds.Columns, ds.NumberOfFrames  = BW.shape
             ds.BitsAllocated = ds.BitsStored = 8
             ds.HighBit = 7
-            ds.SeriesInstanceUID = dicom.uid.generate_uid()
+            ds.SOPInstanceUID = ds.SeriesInstanceUID = dicom.uid.generate_uid()
             ds.PixelData = RGB.tobytes()
             ds.SeriesDescription = f"{optional_text} - VDP: {np.round(self.metadata['VDP'],1)}"
             ds.save_as(save_path)
