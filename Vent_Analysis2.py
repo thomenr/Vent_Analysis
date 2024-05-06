@@ -30,23 +30,29 @@ class Vent_Analysis:
         HPvent - 3D array of ventilation image stack
         mask - 3D array of lung segmentation for HPvent (must match HPvent shape)
     these inputs can be called either by direct input as numpy arrays, as paths to dicom files/folders, or as a pickle file to be unpickled
-    CALCULATED ATTRIBUTES: 
+    ATTRIBUTES: (all are declared in __init__ with empty strings, most are self explanatory but heres a list of a few)
         version - Date and author of most recent Vent_Analysis update
         N4HPvent - N4 bias corrected ventilation array
-        normMeanHPvent - ventilation array normalized to signal mean (mean-anchored)
-        norm95HPvent - ventilation array normalized to signal 95th percentile (linear binning)
         defectArray - binary array of defect voxels (using mean-anchored array)
         VDP - the ventilation defect percentage using 60% treshold by default (using mean-anchored array)
         CIarray - the Cluster Index Array given the defectArray and vox
         CI - the 95th percentile Cluster Value
+        vox - the dimensions of a voxel as a vector
+        ds - the complete pydicom object for the HPvent
+        metadata - a dictionary of single value properties of the data
     METHODS:
         __init__ - Opens the HP Vent and mask dicoms into self.HPvent, and self.mask
         openSingleDICOM - opens a single 3D dicom file (for vent or proton images)
         openDICOMfolder - opens all 2D dicoms in a folder (for mask images) into 3D array
         pullDICOMHeader - pulls useful DICOM header info into self variables
-        runVDP - creates N4HPvent, defectarray (mean-anchored) and VDP
-        calculateCI - calculates CI (imports CI functions)
+        calculate_VDP - creates N4HPvent, defectarrays and VDPs
+        calculate_CI - calculates CI (imports CI functions)
+        exportDICOM - creates a DICOM of the ventilation with defect overlay
+        cropToData - using the mask, returns only the rows,cols,slices with signal
+        screenShot - Produces a png image of the data
         process_RAW - process the corresponding TWIX file associated
+        pickleMe - creates a dictionary of all class attributes and saves as pickle
+        unPickleMe - given a pickle, rebuilds the class object
     """
     def __init__(self,xenon_path = None, 
                  mask_path = None, 
@@ -182,6 +188,7 @@ class Vent_Analysis:
         return ds, mask
 
     def pullDICOMHeader(self):
+        '''Pulls some of our favorite elements from the DICOM header and adds to metadata dicionary. Voxel dimensions 'vox' are stored separately'''
         infoList = ['PatientName','PatientAge','PatientBirthDate','PatientSize','PatientWeight','PatientSex','StudyDate','StudyTime','SeriesTime']
         for elem in infoList:
             try:
@@ -206,6 +213,7 @@ class Vent_Analysis:
             self.vox = [float(self.vox[0]),float(self.vox[1]),float(input())]
 
     def calculateBorder(self,A):
+        '''Given a binary array, returns the border of the binary volume (useful for creating a border from the mask for display)'''
         border = np.zeros(A.shape)
         for k in range(A.shape[2]):
             x = np.gradient(A[:,:,k].astype(float))
@@ -219,6 +227,7 @@ class Vent_Analysis:
             return (x - np.min(x)) / (np.max(x) - np.min(x))
 
     def calculate_VDP(self,thresh=0.6):
+        '''Given HPvent and a mask calculates VDPs'''
         self.metadata['SNR'] = self.calculate_SNR(self.HPvent,self.mask) ## -- SNR of xenon DICOM images, not Raw, nor N4
         self.N4HPvent = self.N4_bias_correction(self.HPvent,self.mask)
 
@@ -249,6 +258,7 @@ class Vent_Analysis:
         #return self.CIarray, self.CI
 
     def exportNifti(self,filepath=None,fileName = None):
+        '''Builds all arrays into a 4D array (see build4DdataArrays()) and exports as Nifti'''
         print('\033[34mexportNifti method called...\033[37m')
         if filepath == None:
             print('\033[94mWhere would you like to save your Niftis?\033[37m')
@@ -292,6 +302,7 @@ class Vent_Analysis:
 
 
     def N4_bias_correction(self,HPvent, mask):
+        '''Performs N4itk Bias Correction'''
         start_time = time.time()
         print('Performing Bias Correction...')
 
@@ -335,6 +346,7 @@ class Vent_Analysis:
     
 
     def dicom_to_dict(self, elem, include_private=False):
+        '''Given a pydicom object (elem) extracts all elements and builds into dictionary'''
         data_dict = {}
         for sub_elem in elem:
             if not include_private and sub_elem.tag.is_private:
@@ -348,13 +360,15 @@ class Vent_Analysis:
         return data_dict
 
     def dicom_to_json(self, ds, json_path='c:/pirl/data/DICOMjson.json', include_private=True):
+        '''Saves DICOM Header to json file (except the Pixel Data)'''
         dicom_dict = self.dicom_to_dict(ds, include_private)
         with open(json_path, 'w') as json_file:
             json.dump(dicom_dict, json_file, indent=4)
         print(f"\033[32mJson file saved to {json_path}\033[37m")
 
     def exportDICOM(self,ds,save_path = 'C:/PIRL/data/XenonDefectArray.dcm',type='modulus'):
-        if self.defectArray == '':
+        '''Create and saves the Ventilation images with defectArray overlayed'''
+        if type(self.defectArray) is str:
             print('\033[31mCant export dicoms until you run calculate_VDP()...\033[37m')
         else:
             BW = (self.normalize(np.abs(self.N4HPvent)) * (2 ** 8 - 1)).astype('uint%d' % 8)
@@ -377,6 +391,7 @@ class Vent_Analysis:
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
 
     def cropToData(self, A, border=0,borderSlices=False):
+        '''Given a 3D mask array, crops rows,cols,slices to only those with signal (useful for creating montage slides)'''
         # Calculate the indices for non-zero slices, rows, and columns
         slices = np.multiply(np.sum(np.sum(A,axis=0),axis=0)>0,list(range(0,A.shape[2])))
         rows = np.multiply(np.sum(np.sum(A,axis=1),axis=1)>0,list(range(0,A.shape[0])))
@@ -404,6 +419,7 @@ class Vent_Analysis:
         return cropped_A, list(range(rows_start, rows_end)), list(range(cols_start, cols_end)), list(range(slices_start, slices_end))
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
+        '''Creates and saves a montage image of all processed data images'''
         A = self.build4DdataArray()
         _,rr,cc,ss = self.cropToData(A[:,:,:,2],border = 5)
         A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
@@ -486,17 +502,17 @@ class Vent_Analysis:
         return string
 
 # #Some test code
-# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-# Vent1
-# Vent1.calculate_VDP()
-# Vent1.screenShot()
-# Vent1.dicom_to_json(Vent1.ds)
-# Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+Vent1
+Vent1.calculate_VDP()
+Vent1.screenShot()
+Vent1.dicom_to_json(Vent1.ds)
+Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
 
-# Vent1.metadata['VDP']
-# Vent1.metadata['VDP_lb']
-# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
-# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent1.metadata['VDP']
+Vent1.metadata['VDP_lb']
+Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
     # def process_RAW(self,filepath=None):
     #     if filepath == None:
