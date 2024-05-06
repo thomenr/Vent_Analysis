@@ -502,17 +502,17 @@ class Vent_Analysis:
         return string
 
 # #Some test code
-Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-Vent1
-Vent1.calculate_VDP()
-Vent1.screenShot()
-Vent1.dicom_to_json(Vent1.ds)
-Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+# Vent1
+# Vent1.calculate_VDP()
+# Vent1.screenShot()
+# Vent1.dicom_to_json(Vent1.ds)
+# Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
 
-Vent1.metadata['VDP']
-Vent1.metadata['VDP_lb']
-Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
-Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+# Vent1.metadata['VDP']
+# Vent1.metadata['VDP_lb']
+# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
     # def process_RAW(self,filepath=None):
     #     if filepath == None:
