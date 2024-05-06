@@ -366,9 +366,9 @@ class Vent_Analysis:
             json.dump(dicom_dict, json_file, indent=4)
         print(f"\033[32mJson file saved to {json_path}\033[37m")
 
-    def exportDICOM(self,ds,save_path = 'C:/PIRL/data/XenonDefectArray.dcm',type='modulus'):
+    def exportDICOM(self,ds,save_path = 'C:/PIRL/data/XenonDefectArray.dcm',optional_text = ''):
         '''Create and saves the Ventilation images with defectArray overlayed'''
-        if type(self.defectArray) is str:
+        if self.metadata['VDP'] == '':
             print('\033[31mCant export dicoms until you run calculate_VDP()...\033[37m')
         else:
             BW = (self.normalize(np.abs(self.N4HPvent)) * (2 ** 8 - 1)).astype('uint%d' % 8)
@@ -384,8 +384,9 @@ class Vent_Analysis:
             ds.HighBit = 7
             ds.SeriesInstanceUID = dicom.uid.generate_uid()
             ds.PixelData = RGB.tobytes()
-            ds.SeriesDescription = f"VDP: {np.round(self.metadata['VDP'],1)}"
+            ds.SeriesDescription = f"{optional_text} - VDP: {np.round(self.metadata['VDP'],1)}"
             ds.save_as(save_path)
+            print(f'\033[32mdefect DICOM saved to {save_path}\033[37m')
     
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
@@ -934,7 +935,7 @@ if __name__ == "__main__":
             Vent1.dicom_to_json(Vent1.ds, json_path=os.path.join(EXPORT_path,f'{fileName}.json'))
             Vent1.pickleMe(pickle_path=os.path.join(EXPORT_path,f'{fileName}.pkl'))
             Vent1.screenShot(path=os.path.join(EXPORT_path,f'{fileName}.png'))
-            Vent1.exportDICOM(Vent1.ds,os.path.join(EXPORT_path,f'{fileName}.dcm'))
+            Vent1.exportDICOM(Vent1.ds,os.path.join(EXPORT_path,f'{fileName}.dcm'),optional_text=fileName)
             window['-STATUS-'].update("Data Successfully Exported...",text_color='green')
 
             if values['-ARCHIVE-'] == True:
