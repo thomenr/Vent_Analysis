@@ -352,6 +352,22 @@ class Vent_Analysis:
         with open(json_path, 'w') as json_file:
             json.dump(dicom_dict, json_file, indent=4)
         print(f"\033[32mJson file saved to {json_path}\033[37m")
+
+    def exportDICOM(self,ds,save_path = 'C:/PIRL/data/XenonDefectArray.dcm',type='modulus'):
+        BW = (self.normalize(np.abs(self.N4HPvent)) * (2 ** 8 - 1)).astype('uint%d' % 8)
+        RGB = np.zeros((self.N4HPvent.shape[0],self.N4HPvent.shape[1],self.N4HPvent.shape[2],3),dtype=np.uint8)
+        RGB[:,:,:,0] = BW*(self.defectArray==0) + 255*(self.defectArray==1)
+        RGB[:,:,:,1] = BW*(self.defectArray==0)
+        RGB[:,:,:,2] = BW*(self.defectArray==0)
+        RGB = np.transpose(RGB,axes = (2,0,1,3))
+        ds.PhotometricInterpretation = 'RGB'
+        ds.SamplesPerPixel = 3
+        ds.Rows, ds.Columns, ds.NumberOfFrames  = BW.shape
+        ds.BitsAllocated = ds.BitsStored = 8
+        ds.HighBit = 7
+        ds.SeriesInstanceUID = dicom.uid.generate_uid()
+        ds.PixelData = RGB.tobytes()
+        ds.save_as(save_path)
     
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
@@ -466,17 +482,89 @@ class Vent_Analysis:
         return string
 
 # #Some test code
-# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-# Vent1
-# Vent1.calculate_VDP()
-# Vent1.screenShot()
-# Vent1.dicom_to_json(Vent1.ds)
-# Vent1.metadata['VDP']
-# Vent1.metadata['VDP_lb']
-# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
-# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+Vent1
+Vent1.calculate_VDP()
+Vent1.screenShot()
+Vent1.dicom_to_json(Vent1.ds)
+Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+
+Vent1.metadata['VDP']
+Vent1.metadata['VDP_lb']
+Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
 
+RGB = np.zeros((3,3,2,3))
+RGB[:,0,0,0] = 255
+RGB[:,1,0,1] = 255
+RGB[:,2,0,2] = 255
+RGB[0,:,1,0] = 255
+RGB[1,:,1,1] = 255
+RGB[2,:,1,2] = 255
+RGB.tobytes()
+
+BW = (Vent1.normalize(np.abs(Vent1.N4HPvent)) * (2 ** 8 - 1)).astype('uint%d' % 8)
+RGB = np.zeros((Vent1.N4HPvent.shape[0],Vent1.N4HPvent.shape[1],Vent1.N4HPvent.shape[2],3),dtype=np.uint8)
+RGB[:,:,:,0] = BW*(Vent1.defectArray==0) + 255*(Vent1.defectArray==1)
+RGB[:,:,:,1] = BW*(Vent1.defectArray==0)
+RGB[:,:,:,2] = BW*(Vent1.defectArray==0)
+RGB = np.transpose(RGB,axes = (2,0,1,3))
+Vent1.ds.PhotometricInterpretation = 'RGB'
+Vent1.ds.SamplesPerPixel = 3
+Vent1.ds.Rows = RGB.shape[1]
+Vent1.ds.Columns = RGB.shape[2]
+Vent1.ds.NumberOfFrames = RGB.shape[0]
+Vent1.ds.BitsAllocated = Vent1.ds.BitsStored = 8
+Vent1.ds.HighBit = 7
+Vent1.ds.SOPInstanceUID = Vent1.ds.SeriesInstanceUID = dicom.uid.generate_uid()
+Vent1.ds.PixelData = RGB.tobytes()
+Vent1.ds.save_as('c:/pirl/data/newDICOMsave.dcm')
+print("DICOM saved with shape:", (Vent1.ds.NumberOfFrames, Vent1.ds.Rows, Vent1.ds.Columns, 3))
+
+import numpy as np
+import pydicom
+import dicom.uid
+
+# Initial RGB setup
+RGB = np.zeros((3,3,2,3), dtype=np.uint8)
+RGB[:,0,0,0] = 255  # First slice, first column red
+RGB[:,1,0,1] = 255  # First slice, second column green
+RGB[:,2,0,2] = 255  # First slice, third column blue
+RGB[0,:,1,0] = 255  # Second slice, first row red
+RGB[1,:,1,1] = 255  # Second slice, second row green
+RGB[2,:,1,2] = 255  # Second slice, third row blue
+
+# Verify contents before transpose
+print("Original RGB Shape:", RGB.shape)
+print("Slice 1:\n", RGB[:,:,0,:])
+print("Slice 2:\n", RGB[:,:,1,:])
+
+# Transpose
+RGB = np.transpose(RGB, axes=(2, 0, 1, 3))
+# After transposing
+print("Transposed RGB Shape:", RGB.shape)
+print("Frame 1 after transpose (originally Slice 1):\n", RGB[0, :, :, :])
+print("Frame 2 after transpose (originally Slice 2):\n", RGB[1, :, :, :])
+
+print("Transposed RGB Shape:", RGB.shape)
+
+# Setup DICOM metadata
+Vent1.ds.PhotometricInterpretation = 'RGB'
+Vent1.ds.SamplesPerPixel = 3
+Vent1.ds.Rows = RGB.shape[1]
+Vent1.ds.Columns = RGB.shape[2]
+Vent1.ds.NumberOfFrames = RGB.shape[0]
+Vent1.ds.BitsAllocated = Vent1.ds.BitsStored = 8
+Vent1.ds.HighBit = 7
+Vent1.ds.SOPInstanceUID = Vent1.ds.SeriesInstanceUID = dicom.uid.generate_uid()
+Vent1.ds.PixelData = RGB.tobytes()
+
+# Save DICOM
+Vent1.ds.save_as('c:/pirl/data/newDICOMsave.dcm')
+
+# Confirming the output
+print("DICOM saved with shape:", (Vent1.ds.NumberOfFrames, Vent1.ds.Rows, Vent1.ds.Columns, 3))
 
     # def extractPickle(self,pkl,version):
     #     self.proton = pkl[0][:,:,:,0]
