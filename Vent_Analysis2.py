@@ -6,7 +6,7 @@ import nibabel as nib # ------------------- for Nifti stuffs
 import numpy as np
 import os
 import pickle # --------------------------- For Pickling and unpickling data
-from PIL import Image, ImageTk # ---------- for arrayToImage conversion
+from PIL import Image, ImageTk, ImageDraw, ImageFont # ---------- for arrayToImage conversion
 import pydicom as dicom # ----------------- for openSingleDICOM and openDICOMFolder
 from scipy.signal import medfilt2d # ------ for calculateVDP
 import SimpleITK as sitk # ---------------- for N4 Bias Correection
@@ -441,19 +441,19 @@ class Vent_Analysis:
         imageArray = np.zeros((rr*5,cc*ss,3))
         for s in range(ss):
             # -- proton
-            imageArray[0:rr,(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]
-            imageArray[0:rr,(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]
-            imageArray[0:rr,(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]
+            imageArray[0:rr,(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]*0
+            imageArray[0:rr,(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]*0
+            imageArray[0:rr,(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]*0
+
+            # -- proton
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]
+            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]
 
             # -- raw xenon
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,1]
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,1]
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,1]
-
-            # -- N4 xenon
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,1]
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,1]
+            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,1]
             
             # -- N4 xenon w mask border
             imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-mask_border[:,:,s])
@@ -466,6 +466,14 @@ class Vent_Analysis:
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-A[:,:,s,4])
         #plt.imsave(path, imageArray) # -- matplotlib command to save array as png
         image = Image.fromarray(np.uint8(imageArray*255))  # Convert the numpy array to a PIL image
+        draw = ImageDraw.Draw(image)
+        text_info = ['','','','']
+        text_info[0] = f"Patient: {self.metadata['PatientName']} -- Age: {self.metadata['PatientAge']}"
+        text_info[1] = f"Analysis Version: {self.version}"
+        text_info[2] = f"VDP: {self.metadata['VDP']}"
+        text_info[3] = f"pants"
+        for k in range(len(text_info)):
+            draw.text((10+k*10,10),text_info[k],fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
         image.save(path, 'PNG')  # Save the image
         print(f'\033[32mScreenshot saved to {path}\033[37m')
 
@@ -503,17 +511,18 @@ class Vent_Analysis:
         return string
 
 # #Some test code
-# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-# Vent1
-# Vent1.calculate_VDP()
-# Vent1.screenShot()
-# Vent1.dicom_to_json(Vent1.ds)
-# Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+Vent1
+Vent1.calculate_VDP()
+Vent1.screenShot()
 
-# Vent1.metadata['VDP']
-# Vent1.metadata['VDP_lb']
-# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
-# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent1.dicom_to_json(Vent1.ds)
+Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+
+Vent1.metadata['VDP']
+Vent1.metadata['VDP_lb']
+Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
     # def process_RAW(self,filepath=None):
     #     if filepath == None:
