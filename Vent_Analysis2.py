@@ -15,7 +15,7 @@ from sys import getsizeof # --------------- To report twix object size
 import time # ----------------------------- for calculateVDP
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
-#import mapvbvd # -------------------------- for process_Raw
+import mapvbvd # -------------------------- for process_Raw
 #from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
 
 
@@ -367,7 +367,8 @@ class Vent_Analysis:
         print(f"\033[32mJson file saved to {json_path}\033[37m")
 
     def exportDICOM(self,ds,save_path = 'C:/PIRL/data/XenonDefectArray.dcm',optional_text = ''):
-        '''Create and saves the Ventilation images with defectArray overlayed'''
+        '''Create and saves the Ventilation images with defectArray overlayed
+        Note: Our PACS doesn't seem to like the export of 3D data as a single DICOM...'''
         if self.metadata['VDP'] == '':
             print('\033[31mCant export dicoms until you run calculate_VDP()...\033[37m')
         else:
@@ -477,7 +478,22 @@ class Vent_Analysis:
         image.save(path, 'PNG')  # Save the image
         print(f'\033[32mScreenshot saved to {path}\033[37m')
 
-
+    def process_RAW(self,filepath=None):
+        '''Given a twix file, will extract the raw kSpace and reconstruct the image array.
+            Not exactly sure what to do with this yet - should we use the Twix_Vent class for this
+            separately? Maybe not necessary here?'''
+        if filepath == None:
+            print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
+            filepath = tk.filedialog.askopenfilename()
+        self.raw_twix = mapvbvd.mapVBVD(filepath)
+        self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
+        self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
+        self.raw_twix.image.squeeze = True
+        self.raw_K = self.raw_twix.image['']
+        self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
+        for k in range(self.raw_K.shape[2]):
+            self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
+        self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
 
     def pickleMe(self, pickle_path):
         '''Uses dictionary comprehension to create a dictionary of all class attriutes, then saves as pickle'''
@@ -524,42 +540,30 @@ Vent1.metadata['VDP_lb']
 Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
-    # def process_RAW(self,filepath=None):
-    #     if filepath == None:
-    #         print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
-    #         filepath = tk.filedialog.askopenfilename()
-    #     self.raw_twix = mapvbvd.mapVBVD(filepath)
-    #     self.metadata['TWIXscanDateTime'] = self.raw_twix.hdr.Config['PrepareTimestamp']
-    #     self.metadata['TWIXprotocolName'] = self.raw_twix.hdr.Meas['tProtocolName']
-    #     self.raw_twix.image.squeeze = True
-    #     self.raw_K = self.raw_twix.image['']
-    #     self.raw_HPvent = np.zeros((self.raw_K.shape)).astype(np.complex128)
-    #     for k in range(self.raw_K.shape[2]):
-    #         self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
-    #     self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
 
-# def extract_attributes(attr_dict, parent_key='', sep='_'):
-#     """
-#     Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
+
+def extract_attributes(attr_dict, parent_key='', sep='_'):
+    """
+    Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
     
-#     Args:
-#     - attr_dict (dict): The attribute dictionary to extract from.
-#     - parent_key (str): The base key to use for building key names for subattributes.
-#     - sep (str): The separator to use between nested keys.
+    Args:
+    - attr_dict (dict): The attribute dictionary to extract from.
+    - parent_key (str): The base key to use for building key names for subattributes.
+    - sep (str): The separator to use between nested keys.
     
-#     Returns:
-#     - dict: A flat dictionary with all attributes and subattributes.
-#     """
-#     items = []
-#     for k, v in attr_dict.items():
-#         new_key = f"{parent_key}{sep}{k}" if parent_key else k
-#         if isinstance(v, dict):
-#             # If the value is a dictionary, recurse
-#             items.extend(extract_attributes(v, new_key, sep=sep).items())
-#         else:
-#             # Otherwise, add the attribute to the items list
-#             items.append((new_key, v))
-#     return dict(items)
+    Returns:
+    - dict: A flat dictionary with all attributes and subattributes.
+    """
+    items = []
+    for k, v in attr_dict.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            # If the value is a dictionary, recurse
+            items.extend(extract_attributes(v, new_key, sep=sep).items())
+        else:
+            # Otherwise, add the attribute to the items list
+            items.append((new_key, v))
+    return dict(items)
 
 
 ### ------------------------------------------------------------------------------------------------ ###
