@@ -270,7 +270,6 @@ class Vent_Analysis:
         try:
             dataArray = self.build4DdataArray()
             niImage = nib.Nifti1Image(dataArray, affine=np.eye(4))
-            #niImage.header['pixdim'] = self.vox
             savepath = os.path.join(filepath,fileName + '_dataArray.nii')
             nib.save(niImage,savepath)
             print(f'\033[32mNifti HPvent array saved to {savepath}\033[37m')
@@ -279,7 +278,7 @@ class Vent_Analysis:
 
     def build4DdataArray(self):
         ''' Our arrays are: Proton [0], HPvent [1], mask  [2], N4HPvent [3], defectArray [4], CIarray [5]'''
-        dataArray = np.zeros((self.HPvent.shape[0],self.HPvent.shape[1],self.HPvent.shape[2],6))
+        dataArray = np.zeros((self.HPvent.shape[0],self.HPvent.shape[1],self.HPvent.shape[2],6),dtype=np.float32)
         dataArray[:,:,:,1] = self.HPvent
         dataArray[:,:,:,2] = self.mask
         try:
@@ -526,19 +525,26 @@ class Vent_Analysis:
                 string += (f'\033[32m {attr}: \033[36m{type(value)} \033[37m\n')
         return string
 
-# #Some test code
-Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-Vent1
-Vent1.calculate_VDP()
-Vent1.metadata['FEV1'] = 95
-Vent1.screenShot()
-Vent1.dicom_to_json(Vent1.ds)
-Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
 
-Vent1.metadata['VDP']
-Vent1.metadata['VDP_lb']
-Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
-Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+
+
+
+
+
+
+# # #Some test code
+# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+# Vent1
+# Vent1.calculate_VDP()
+# Vent1.metadata['FEV1'] = 95
+# Vent1.screenShot()
+# Vent1.dicom_to_json(Vent1.ds)
+# Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+
+# Vent1.metadata['VDP']
+# Vent1.metadata['VDP_lb']
+# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
 
 
