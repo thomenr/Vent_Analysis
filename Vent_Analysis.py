@@ -71,8 +71,8 @@ class Vent_Analysis:
         self.vox = ''
         self.ds = ''
         self.twix = ''
-        # self.raw_k = ''
-        # self.raw_HPvent = ''
+        self.raw_k = ''
+        self.raw_HPvent = ''
         self.metadata = {'fileName': '',
                         'PatientName': '',
                         'PatientAge': '',
@@ -478,8 +478,11 @@ class Vent_Analysis:
 
     def process_RAW(self,filepath=None):
         '''Given a twix file, will extract the raw kSpace and reconstruct the image array.
-            Not exactly sure what to do with this yet - should we use the Twix_Vent class for this
-            separately? Maybe not necessary here?'''
+            3 new attributes are created here from the twix file: the twix object, the raw kSpace array, and the image array (kSpace fft'd).
+            I'm not a huge fan of this because having objects as class attributes isn't super backwards compatible, nor convertable across versions.
+            This is why when we pickle the Vent_Analysis object, all attributes are converted to dictionaries first (I learned that the hard way).
+            Anyways, in the future I think we need to do the same here: extract twix object attributes to a dictionary. But idk. 
+            The ISMRMRD can help here, BUT header info is lost in this conversion so I don't want to do it exclusively...'''
         if filepath == None:
             print('\033[94mSelect the corresponding RAW data file (Siemens twix)...\033[37m\n')
             filepath = tk.filedialog.askopenfilename()
