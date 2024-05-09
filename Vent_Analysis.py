@@ -364,7 +364,7 @@ class Vent_Analysis:
             json.dump(dicom_dict, json_file, indent=4)
         print(f"\033[32mJson file saved to {json_path}\033[37m")
 
-    def exportDICOM(self,ds,save_path = 'C:/PIRL/data/XenonDefectArray.dcm',optional_text = ''):
+    def exportDICOM(self,ds,save_dir = 'C:/PIRL/data/',optional_text = '',forPACS=True):
         '''Create and saves the Ventilation images with defectArray overlayed
         Note: Our PACS doesn't seem to like the export of 3D data as a single DICOM...'''
         if self.metadata['VDP'] == '':
@@ -375,17 +375,43 @@ class Vent_Analysis:
             RGB[:,:,:,0] = BW*(self.defectArray==0) + 255*(self.defectArray==1)
             RGB[:,:,:,1] = BW*(self.defectArray==0)
             RGB[:,:,:,2] = BW*(self.defectArray==0)
-            RGB = np.transpose(RGB,axes = (2,0,1,3)) # first dimension must always be slices for DICOM export
-            ds.PhotometricInterpretation = 'RGB'
-            ds.SamplesPerPixel = 3
-            ds.Rows, ds.Columns, ds.NumberOfFrames  = BW.shape
-            ds.BitsAllocated = ds.BitsStored = 8
-            ds.HighBit = 7
-            ds.SOPInstanceUID = ds.SeriesInstanceUID = dicom.uid.generate_uid()
-            ds.PixelData = RGB.tobytes()
-            ds.SeriesDescription = f"{optional_text} - VDP: {np.round(self.metadata['VDP'],1)}"
-            ds.save_as(save_path)
-            print(f'\033[32mdefect DICOM saved to {save_path}\033[37m')
+            if forPACS is False:
+                RGB = np.transpose(RGB,axes = (2,0,1,3)) # first dimension must always be slices for DICOM export
+                ds.PhotometricInterpretation = 'RGB'
+                ds.SamplesPerPixel = 3
+                ds.Rows, ds.Columns, ds.NumberOfFrames  = BW.shape
+                ds.BitsAllocated = ds.BitsStored = 8
+                ds.HighBit = 7
+                ds.SOPInstanceUID = ds.SeriesInstanceUID = dicom.uid.generate_uid()
+                ds.PixelData = RGB.tobytes()
+                ds.SeriesDescription = f"{optional_text} - VDP: {np.round(self.metadata['VDP'],1)}"
+                save_path = os.path.join(save_dir,f"{self.metadata['PatientName']}_defectDICOM.dcm")
+                ds.save_as(save_path)
+                print(f'\033[32mdefect DICOM saved to {save_path}\033[37m')
+            elif forPACS is True:
+                new_uid = dicom.uid.generate_uid()
+                self.ds.SeriesInstanceUID = new_uid
+                num_dicoms = BW.shape[2]
+                all_locations = range(-64, 64, 1)
+                num_bits = 8
+                dicom_path = os.path.join(save_dir,'defectDICOMS')
+                if not os.path.isdir(dicom_path):
+                    os.makedirs(dicom_path)
+                for i in range(num_dicoms):
+                    color_image = RGB[:,:,i,:]
+                    ds.PixelData = color_image.tobytes()
+                    ds.Rows, ds.Columns = color_image.shape[:2]
+                    ds.SamplesPerPixel = 3
+                    ds.PhotometricInterpretation = 'RGB'
+                    ds.BitsAllocated = num_bits
+                    ds.BitsStored = num_bits
+                    ds.SeriesDescription = f"{optional_text} - VDP: {np.round(self.metadata['VDP'],1)}"
+                    ds.InstanceNumber = i + 1
+                    ds.SliceLocation = all_locations[i]
+                    new_uid = dicom.uid.generate_uid()
+                    ds.SOPInstanceUID = new_uid
+                    ds.NumberOfFrames = 1
+                    ds.save_as(os.path.join(dicom_path, f"dicom_{i}.dcm"))
     
     def array3D_to_montage2D(self,A):
         return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
@@ -535,18 +561,19 @@ class Vent_Analysis:
 
 
 # # #Some test code
-# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
-# Vent1
-# Vent1.calculate_VDP()
-# Vent1.metadata['FEV1'] = 95
-# Vent1.screenShot()
-# Vent1.dicom_to_json(Vent1.ds)
-# Vent1.exportDICOM(Vent1.ds,save_path='C:/pirl/data/newDICOMsave.dcm')
+Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+Vent1
+Vent1.calculate_VDP()
+Vent1.metadata['FEV1'] = 95
+Vent1.screenShot()
+Vent1.dicom_to_json(Vent1.ds)
+Vent1.exportDICOM(Vent1.ds,save_dir='C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_240509/',forPACS=True)
+Vent1.exportDICOM(Vent1.ds,save_dir='C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_240509/',forPACS=False)
 
-# Vent1.metadata['VDP']
-# Vent1.metadata['VDP_lb']
-# Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
-# Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent1.metadata['VDP']
+Vent1.metadata['VDP_lb']
+Vent1.pickleMe(pickle_path = f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
+Vent2 = Vent_Analysis(pickle_path=f"c:/PIRL/data/{Vent1.metadata['PatientName']}.pkl")
 
 
 
@@ -956,7 +983,7 @@ if __name__ == "__main__":
             Vent1.dicom_to_json(Vent1.ds, json_path=os.path.join(EXPORT_path,f'{fileName}.json'))
             Vent1.pickleMe(pickle_path=os.path.join(EXPORT_path,f'{fileName}.pkl'))
             Vent1.screenShot(path=os.path.join(EXPORT_path,f'{fileName}.png'))
-            Vent1.exportDICOM(Vent1.ds,os.path.join(EXPORT_path,f'{fileName}.dcm'),optional_text=fileName)
+            Vent1.exportDICOM(Vent1.ds,EXPORT_path,optional_text=fileName,forPACS=True)
             window['-STATUS-'].update("Data Successfully Exported...",text_color='green')
 
             if values['-ARCHIVE-'] == True:
