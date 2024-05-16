@@ -63,7 +63,7 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '240506_RPT' # - update this when changes are made!! - #
+        self.version = '240516_RPT' # - update this when changes are made!! - #
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
@@ -605,7 +605,7 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 ### ------------------------------------------------------------------------------------------------ ###
 
 if __name__ == "__main__":
-    version = '240505_RPT'
+    version = '240516_RPT'
     image_box_size = 50
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     
