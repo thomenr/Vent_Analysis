@@ -40,8 +40,9 @@ def getSpherePix(vox, radius):
         Outputs: pxls - a 2D Nx4 array listing all radii (column 0) and pixel indices (cols 1-3) 
     
     '''
+    pxListFileName = f'{vox[0]}x{vox[1]}x{vox[2]}_{radius}.npy'
     try:
-        pxls = np.load(os.path.join(os.getcwd(),f'{radius}.npy'))
+        pxls = np.load(os.path.join(os.getcwd(),pxListFileName))
         print(f'\n spherePx of {radius} exists and is being loaded...')
     except:
         print(f"\n Could not find {os.path.join(os.getcwd(),f'{radius}.npy')}. Building List of Pixels in sphere of radius {radius}...")
@@ -57,7 +58,7 @@ def getSpherePix(vox, radius):
             y = Y[circle]
             z = Z[circle]
             pxls = np.vstack((pxls,np.column_stack((np.repeat(r,len(x)),x,y,z))))
-        np.save(os.path.join(os.getcwd(),f'{radius}.npy'),pxls)
+        np.save(os.path.join(os.getcwd(),pxListFileName),pxls)
         print(f"Sphere Pixel List of length {pxls.shape[0]} calculation time: {np.round(time.time()-starttime,2)} seconds")
     return pxls
 
