@@ -1,5 +1,5 @@
 ## -- PIRL Ventilation Image Analysis Pipeline -- ##
-## -- RPT, 5/5/2024 -- ##
+## -- RPT, 5/16/2024 -- ##
 import CI # ------------------------------- for calculateCI
 import json # ----------------------------- For saving header as json file
 import nibabel as nib # ------------------- for Nifti stuffs
@@ -561,7 +561,7 @@ class Vent_Analysis:
 
 
 # # #Some test code
-# Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
 # Vent1.calculate_VDP()
 # Vent1.metadata['FEV1'] = 95
 # Vent1.screenShot()
