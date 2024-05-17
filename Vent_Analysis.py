@@ -561,7 +561,23 @@ class Vent_Analysis:
 
 
 # # #Some test code
-Vent1 = Vent_Analysis(xenon_path='C:/PIRL/data/MEPOXE0039/48522586xe',mask_path='C:/PIRL/data/MEPOXE0039/Mask')
+# pickle_path = 'C:/Users/rptho/Downloads/Mepo0006_211213_visit1_preAlb.pkl'
+# with open(pickle_path, 'rb') as file:
+#     data = pickle.load(file)
+# Vent1 = Vent_Analysis(xenon_array=data[0][:,:,:,1],mask_array=data[0][:,:,:,2])
+# Vent1.proton = data[0][:,:,:,0]
+# Vent1.metadata = data[2]
+# Vent1.raw_K = data[1][:,:,:,0]
+# Vent1.raw_HPvent = data[1][:,:,:,1]
+# vox = data[2]['DICOMVoxelSize']
+# float_list = vox.strip('[]').split(', ')
+# float_list = [float(x) for x in float_list]
+# vox = np.array(float_list)
+# Vent1.vox = vox
+# Vent1
+# Vent1.calculate_VDP()
+# Vent1.calculate_CI()
+
 # Vent1.calculate_VDP()
 # Vent1.metadata['FEV1'] = 95
 # Vent1.screenShot()
