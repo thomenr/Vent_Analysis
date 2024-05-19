@@ -554,9 +554,19 @@ class Vent_Analysis:
         return string
 
 
+# - CI test code
+# vox = [5,4,3]
+# mg = np.meshgrid(np.arange(0,100,vox[0]),np.arange(0,100,vox[1]),np.arange(0,100,vox[2]))
+# defectArray = ((50-mg[0])**2 + (50-mg[1])**2 + (50-mg[2])**2) < 20**2
+# plt.imshow(defectArray[:,int(defectArray.shape[1]/2),:]);plt.show()
+# CIarray = CI.calculate_CI(defectArray,vox = vox)
+# np.max(CIarray)
+# 20*2**(1/3)
 
-
-
+# CVlist = np.sort(CIarray[defectArray>0])
+# index95 = int(0.95*len(CVlist))
+# metadata['CI'] = CVlist[index95]
+# print(f"Calculated CI: {metadata['CI']}")
 
 
 
@@ -569,7 +579,7 @@ class Vent_Analysis:
 # Vent1.metadata = data[2]
 # Vent1.raw_K = data[1][:,:,:,0]
 # Vent1.raw_HPvent = data[1][:,:,:,1]
-# vox = data[2]['DICOMVoxelSize']
+# vox = data[2]['DICOMVoxelSize']vox
 # float_list = vox.strip('[]').split(', ')
 # float_list = [float(x) for x in float_list]
 # vox = np.array(float_list)
