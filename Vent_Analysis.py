@@ -555,7 +555,7 @@ class Vent_Analysis:
 
 
 # - CI test code
-# vox = [5,4,3]
+# vox = [3.22,1.98,15]
 # mg = np.meshgrid(np.arange(0,100,vox[0]),np.arange(0,100,vox[1]),np.arange(0,100,vox[2]))
 # defectArray = ((50-mg[0])**2 + (50-mg[1])**2 + (50-mg[2])**2) < 20**2
 # plt.imshow(defectArray[:,int(defectArray.shape[1]/2),:]);plt.show()
@@ -567,8 +567,6 @@ class Vent_Analysis:
 # index95 = int(0.95*len(CVlist))
 # metadata['CI'] = CVlist[index95]
 # print(f"Calculated CI: {metadata['CI']}")
-
-
 
 # # #Some test code
 # pickle_path = 'C:/Users/rptho/Downloads/Mepo0006_211213_visit1_preAlb.pkl'
