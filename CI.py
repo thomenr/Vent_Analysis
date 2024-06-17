@@ -43,7 +43,7 @@ def getSpherePix(vox, radius):
     pxListFileName = f'{vox[0]}x{vox[1]}x{vox[2]}_{radius}.npy'
     try:
         pxls = np.load(os.path.join(os.getcwd(),pxListFileName))
-        print(f'\n spherePx of {radius} exists and is being loaded...')
+        print(f'\n spherePx {pxListFileName} exists and is being loaded...')
     except:
         print(f"\n Could not find {os.path.join(os.getcwd(),pxListFileName)}. Building List of Pixels in sphere of radius {radius}...")
         radius = int(radius)

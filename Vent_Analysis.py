@@ -16,6 +16,7 @@ import time # ----------------------------- for calculateVDP
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
 import mapvbvd # -------------------------- for process_Raw
+from sklearn.cluster import KMeans # ---------- for kMeans VDP
 #from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
 
 
@@ -85,6 +86,8 @@ class Vent_Analysis:
                         'VDP': '',
                         'VDP_lb': '',
                         'VDP_km': '',
+                        'LungVolume': '',
+                        'DefectVolume': '',
                         'CI': '',
                         'FEV1': '', 
                         'FVC': '',
@@ -212,6 +215,8 @@ class Vent_Analysis:
             print('Slice spacing not in correct position in DICOM header. Please enter manually:')
             self.vox = [float(self.vox[0]),float(self.vox[1]),float(input())]
 
+        self.metadata['LungVolume'] = np.sum(Vent1.mask == 1)*np.prod(Vent1.vox)/1000000
+
     def calculateBorder(self,A):
         '''Given a binary array, returns the border of the binary volume (useful for creating a border from the mask for display)'''
         border = np.zeros(A.shape)
@@ -245,7 +250,12 @@ class Vent_Analysis:
         self.defectArrayLB = ((norm95th_vent<=0.16)*1 + (norm95th_vent>0.16)*(norm95th_vent<=0.34)*2 + (norm95th_vent>0.34)*(norm95th_vent<=0.52)*3 + (norm95th_vent>0.52)*(norm95th_vent<=0.7)*4 + (norm95th_vent>0.7)*(norm95th_vent<=0.88)*5 + (norm95th_vent>0.88)*6)*self.mask
         self.metadata['VDP_lb'] = 100*np.sum((self.defectArrayLB == 1)*1 + (self.defectArrayLB == 2)*1)/np.sum(self.mask)
 
+        self.metadata['DefectVolume'] = np.sum(Vent1.defectArray == 1)*np.prod(Vent1.vox)/1000000
+
         ## -- K-Means [Kirby, 2012] -- ##
+        # k = KMeans(signal_list)
+        # k.fit(np.array(signal_list).reshape(-1,1))
+        
         print('\033[32mcalculate_VDP ran successfully\033[37m')
 
     def calculate_CI(self):
@@ -392,7 +402,7 @@ class Vent_Analysis:
                 new_uid = dicom.uid.generate_uid()
                 self.ds.SeriesInstanceUID = new_uid
                 num_dicoms = BW.shape[2]
-                all_locations = range(-64, 64, 1)
+                all_locations = range(0, num_dicoms, 1)
                 num_bits = 8
                 dicom_path = os.path.join(save_dir,'defectDICOMS')
                 if not os.path.isdir(dicom_path):
@@ -555,30 +565,42 @@ class Vent_Analysis:
 
 
 
+# # # #Some test code
+# VDPs = []
+# CIs = []
+# fileNames = []
+# parent = '//umh.edu/data/Radiology/Xenon_Studies/Gaby/240425_CI/240405_VDP_analysis/Pkls'
+# all_paths = os.listdir(parent)
+# for pickle_file in all_paths:
+#     with open(os.path.join(parent,pickle_file), 'rb') as file:
+#         print(os.path.join(parent,pickle_file))
+#         data = pickle.load(file)
+#     Vent1 = Vent_Analysis(xenon_array=data[0][:,:,:,1],mask_array=data[0][:,:,:,2])
+#     Vent1.proton = data[0][:,:,:,0]
+#     if len(data) == 2:
+#         Vent1.metadata = data[1]
+#         vox = data[1]['DICOMVoxelSize']
+#     elif len(data) == 3:
+#         Vent1.metadata = data[2]
+#         Vent1.raw_K = data[1][:,:,:,0]
+#         Vent1.raw_HPvent = data[1][:,:,:,1]
+#         vox = data[2]['DICOMVoxelSize']
+#     float_list = vox.strip('[]').split(', ')
+#     float_list = [float(x) for x in float_list]
+#     vox = np.array(float_list)
+#     Vent1.vox = vox
+#     Vent1.calculate_VDP()
+#     Vent1.calculate_CI()
+#     VDPs = np.append(VDPs,Vent1.metadata['VDP'])
+#     CIs = np.append(CIs,Vent1.metadata['CI'])
+#     fileNames = np.append(fileNames,pickle_file)
 
 
+# signal_list = sorted(Vent1.N4HPvent[Vent1.mask>0])
+# k = KMeans(n_clusters=5)
+# k.fit(np.array(signal_list).reshape(-1,1))
 
-
-
-# # #Some test code
-# pickle_path = 'C:/Users/rptho/Downloads/Mepo0006_211213_visit1_preAlb.pkl'
-# with open(pickle_path, 'rb') as file:
-#     data = pickle.load(file)
-# Vent1 = Vent_Analysis(xenon_array=data[0][:,:,:,1],mask_array=data[0][:,:,:,2])
-# Vent1.proton = data[0][:,:,:,0]
-# Vent1.metadata = data[2]
-# Vent1.raw_K = data[1][:,:,:,0]
-# Vent1.raw_HPvent = data[1][:,:,:,1]
-# vox = data[2]['DICOMVoxelSize']
-# float_list = vox.strip('[]').split(', ')
-# float_list = [float(x) for x in float_list]
-# vox = np.array(float_list)
-# Vent1.vox = vox
-# Vent1
-# Vent1.calculate_VDP()
-# Vent1.calculate_CI()
-
-# Vent1.calculate_VDP()
+# # Vent1.calculate_VDP()
 # Vent1.metadata['FEV1'] = 95
 # Vent1.screenShot()
 # Vent1.dicom_to_json(Vent1.ds)
@@ -672,9 +694,8 @@ if __name__ == "__main__":
                         ]
     clinical_info_column = [[sg.Text('Clinical Subject Initials:'),sg.InputText(default_text='',size=(10,10),key='clinicalID')],
                            [sg.Text('Visit #:    '),sg.InputText(default_text='0',size=(10,10),key='clinicalvisitnumber')],
-                           [sg.Radio('Single Session','clinicalalbuterol',key='singlesession'),
-                            sg.Radio('PreAlbuterol','clinicalalbuterol',key='prealb_clin'),
-                            sg.Radio('PostAlbuterol','clinicalalbuterol',key='postalb_clin')],
+                           [sg.Radio('Baseline','clinicalalbuterol',key='baseline'),
+                            sg.Radio('Albuterol','clinicalalbuterol',key='postalb_clin')],
                            ]
     dose_info_column = [[sg.Text('DE [mL]:'),sg.InputText(key='DE',size=(10,10))],
                            [sg.Text('FEV1 [%]: '),sg.InputText(key='FEV1',size=(10,10))],
@@ -767,9 +788,9 @@ if __name__ == "__main__":
             window['snr'].update(f"SNR: {Vent1.metadata['SNR']}")
             window['vdp'].update(f"VDP: {Vent1.metadata['VDP']}")
             window['ventarrayshape'].update(f'Ventilation Array Shape: {Vent1.HPvent.shape}')
-            window['masklungvol'].update(f'Mask Lung Volume: {str(np.sum(Vent1.mask == 1)*np.prod(Vent1.vox)/1000000)} [L]')
+            window['masklungvol'].update(f'Mask Lung Volume: {str(Vent1.metadata['LungVolume'])} [L]')
             try:
-                window['defectvolume'].update(f'Defect Volume: {str(np.sum(Vent1.defectArray == 1)*np.prod(Vent1.vox)/1000000)} [L]')
+                window['defectvolume'].update(f'Defect Volume: {str(Vent1.metadata['DefectVolume'])} [L]')
                 window['ci'].update(f"CI: {Vent1.metadata['CI']}")
             except:
                 pass
@@ -975,7 +996,7 @@ if __name__ == "__main__":
                 elif values['postalb_mepo']: fileName = f'{fileName}_postAlb';Vent1.metadata['treatment'] = 'postAlb'
             elif values['clinicalRadio']:
                 fileName = f"Clinical_{values['clinicalID']}_{Vent1.metadata['StudyDate'][2:]}_visit{values['clinicalvisitnumber']}"
-                if values['singlesession']: fileName = f'{fileName}_singlesession';Vent1.metadata['treatment'] = 'none'
+                if values['baseline']: fileName = f'{fileName}_baseline';Vent1.metadata['treatment'] = 'none'
                 elif values['prealb_clin']: fileName = f'{fileName}_preAlb';Vent1.metadata['treatment'] = 'preAlbuterol'
                 elif values['postalb_clin']: fileName = f'{fileName}_postAlb';Vent1.metadata['treatment'] = 'postAlbuterol'
             print(f'-- FileName: {fileName} --')
@@ -1014,9 +1035,7 @@ if __name__ == "__main__":
 
 
 '''Things to add (updated 3/27/2024):
- - Vent_Analysis class inputs either paths to data or the arrays themselves (done 5/4/2024)
- - Output DICOM header info as JSON (done)
- - CI colormap output in screenshot
+ - CI colormap output in screenshot and GUI
  - Multiple VDPs calculated (linear binning, k-means) (LB done)
  - show histogram?
  - edit mask
