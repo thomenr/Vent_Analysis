@@ -139,7 +139,7 @@ def calculate_CI(defectArray,vox=[1,1,1],Rmax=50,type='fast'):
         CIlist = np.vstack(CIlist)
         CI = np.double(defectArray*0)
         for k in range(CIlist.shape[0]):
-            CI[int(CIlist[k,0]),int(CIlist[k,1]),int(CIlist[k,2])] = CIlist[k,3]
+            CI[int(CIlist[k,0]),int(CIlist[k,1]),int(CIlist[k,2])] = CIlist[k,3]*np.min(vox)
         print(f"Time to calculate fast CI array: {np.round((time.time()-start_time)/60,2)} min")
 
     return CI

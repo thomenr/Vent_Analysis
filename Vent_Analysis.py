@@ -564,7 +564,16 @@ class Vent_Analysis:
         return string
 
 
+# - CI test code
+# vox = [3.22,1.98,15]
+# mg = np.meshgrid(np.arange(0,100,vox[0]),np.arange(0,100,vox[1]),np.arange(0,100,vox[2]))
+# defectArray = ((50-mg[0])**2 + (50-mg[1])**2 + (50-mg[2])**2) < 20**2
+# plt.imshow(defectArray[:,int(defectArray.shape[1]/2),:]);plt.show()
+# CIarray = CI.calculate_CI(defectArray,vox = vox)
+# np.max(CIarray)
+# 20*2**(1/3)
 
+<<<<<<< HEAD
 # # # #Some test code
 # VDPs = []
 # CIs = []
@@ -601,6 +610,32 @@ class Vent_Analysis:
 # k.fit(np.array(signal_list).reshape(-1,1))
 
 # # Vent1.calculate_VDP()
+=======
+# CVlist = np.sort(CIarray[defectArray>0])
+# index95 = int(0.95*len(CVlist))
+# metadata['CI'] = CVlist[index95]
+# print(f"Calculated CI: {metadata['CI']}")
+
+# # #Some test code
+# pickle_path = 'C:/Users/rptho/Downloads/Mepo0006_211213_visit1_preAlb.pkl'
+# with open(pickle_path, 'rb') as file:
+#     data = pickle.load(file)
+# Vent1 = Vent_Analysis(xenon_array=data[0][:,:,:,1],mask_array=data[0][:,:,:,2])
+# Vent1.proton = data[0][:,:,:,0]
+# Vent1.metadata = data[2]
+# Vent1.raw_K = data[1][:,:,:,0]
+# Vent1.raw_HPvent = data[1][:,:,:,1]
+# vox = data[2]['DICOMVoxelSize']vox
+# float_list = vox.strip('[]').split(', ')
+# float_list = [float(x) for x in float_list]
+# vox = np.array(float_list)
+# Vent1.vox = vox
+# Vent1
+# Vent1.calculate_VDP()
+# Vent1.calculate_CI()
+
+# Vent1.calculate_VDP()
+>>>>>>> 6f43ad68299e536b89223fa2e396b857f7f1408c
 # Vent1.metadata['FEV1'] = 95
 # Vent1.screenShot()
 # Vent1.dicom_to_json(Vent1.ds)
