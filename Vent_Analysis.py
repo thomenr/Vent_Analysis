@@ -573,7 +573,6 @@ class Vent_Analysis:
 # np.max(CIarray)
 # 20*2**(1/3)
 
-<<<<<<< HEAD
 # # # #Some test code
 # VDPs = []
 # CIs = []
@@ -610,7 +609,6 @@ class Vent_Analysis:
 # k.fit(np.array(signal_list).reshape(-1,1))
 
 # # Vent1.calculate_VDP()
-=======
 # CVlist = np.sort(CIarray[defectArray>0])
 # index95 = int(0.95*len(CVlist))
 # metadata['CI'] = CVlist[index95]
@@ -635,7 +633,6 @@ class Vent_Analysis:
 # Vent1.calculate_CI()
 
 # Vent1.calculate_VDP()
->>>>>>> 6f43ad68299e536b89223fa2e396b857f7f1408c
 # Vent1.metadata['FEV1'] = 95
 # Vent1.screenShot()
 # Vent1.dicom_to_json(Vent1.ds)
@@ -823,9 +820,9 @@ if __name__ == "__main__":
             window['snr'].update(f"SNR: {Vent1.metadata['SNR']}")
             window['vdp'].update(f"VDP: {Vent1.metadata['VDP']}")
             window['ventarrayshape'].update(f'Ventilation Array Shape: {Vent1.HPvent.shape}')
-            window['masklungvol'].update(f'Mask Lung Volume: {str(Vent1.metadata['LungVolume'])} [L]')
+            window['masklungvol'].update(f"Mask Lung Volume: {str(Vent1.metadata['LungVolume'])} [L]")
             try:
-                window['defectvolume'].update(f'Defect Volume: {str(Vent1.metadata['DefectVolume'])} [L]')
+                window['defectvolume'].update(f"Defect Volume: {str(Vent1.metadata['DefectVolume'])} [L]")
                 window['ci'].update(f"CI: {Vent1.metadata['CI']}")
             except:
                 pass
