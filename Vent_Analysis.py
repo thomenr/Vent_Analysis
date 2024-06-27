@@ -727,7 +727,7 @@ if __name__ == "__main__":
     clinical_info_column = [[sg.Text('Clinical Subject Initials:'),sg.InputText(default_text='',size=(10,10),key='clinicalID')],
                            [sg.Text('Visit #:    '),sg.InputText(default_text='0',size=(10,10),key='clinicalvisitnumber')],
                            [sg.Radio('Baseline','clinicalalbuterol',key='baseline'),
-                            sg.Radio('Albuterol','clinicalalbuterol',key='postalb_clin')],
+                            sg.Radio('Albuterol','clinicalalbuterol',key='albuterol')],
                            ]
     dose_info_column = [[sg.Text('DE [mL]:'),sg.InputText(key='DE',size=(10,10))],
                            [sg.Text('FEV1 [%]: '),sg.InputText(key='FEV1',size=(10,10))],
@@ -1029,8 +1029,7 @@ if __name__ == "__main__":
             elif values['clinicalRadio']:
                 fileName = f"Clinical_{values['clinicalID']}_{Vent1.metadata['StudyDate'][2:]}_visit{values['clinicalvisitnumber']}"
                 if values['baseline']: fileName = f'{fileName}_baseline';Vent1.metadata['treatment'] = 'none'
-                elif values['prealb_clin']: fileName = f'{fileName}_preAlb';Vent1.metadata['treatment'] = 'preAlbuterol'
-                elif values['postalb_clin']: fileName = f'{fileName}_postAlb';Vent1.metadata['treatment'] = 'postAlbuterol'
+                elif values['albuterol']: fileName = f'{fileName}_Albuterol';Vent1.metadata['treatment'] = 'Albuterol'
             print(f'-- FileName: {fileName} --')
             print(f'-- FilePath: {EXPORT_path} --')
             if not os.path.isdir(EXPORT_path):
