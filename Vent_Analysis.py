@@ -1,5 +1,5 @@
 ## -- PIRL Ventilation Image Analysis Pipeline -- ##
-## -- RPT, 5/16/2024 -- ##
+## -- GMGD, 7/1/2024 -- ##
 import CI # ------------------------------- for calculateCI
 import json # ----------------------------- For saving header as json file
 import nibabel as nib # ------------------- for Nifti stuffs
@@ -64,7 +64,7 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '240516_RPT' # - update this when changes are made!! - #
+        self.version = '240701_GMGD' # - update this when changes are made!! - #
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
@@ -505,7 +505,9 @@ class Vent_Analysis:
         text_info = ['','','','']
         text_info[0] = f"Patient: {self.metadata['PatientName']} -- {self.metadata['PatientAge']}-{self.metadata['PatientSex']}"
         text_info[1] = f"StudyDate: {self.metadata['StudyDate']} -- {self.metadata['visit']}/{self.metadata['treatment']}"
-        text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'],1)}"
+        #text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'],1)}"
+        text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'], 1)} -- CI: {self.metadata['CI']}"
+
         for k in range(len(text_info)):
             draw.text((10,10+k*40),text_info[k],fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
         draw.text((np.round(imageArray.shape[1]*.75),10),f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
