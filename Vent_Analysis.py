@@ -1,5 +1,5 @@
 ## -- PIRL Ventilation Image Analysis Pipeline -- ##
-## -- RPT, 5/16/2024 -- ##
+## -- GMGD, 7/3/2024 -- ##
 import CI # ------------------------------- for calculateCI
 import json # ----------------------------- For saving header as json file
 import nibabel as nib # ------------------- for Nifti stuffs
@@ -18,6 +18,9 @@ from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFol
 import mapvbvd # -------------------------- for process_Raw
 from sklearn.cluster import KMeans # ---------- for kMeans VDP
 #from matplotlib import pyplot as plt # ---- for makeSlide and screenShot
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+from parula_colormap import get_parula_colormap # -for parula colormap in screenshot
 
 
 #------------------------------------------------------------------------------------
@@ -64,7 +67,7 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '240516_RPT' # - update this when changes are made!! - #
+        self.version = '240703_GMGD' # - update this when changes are made!! - #
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
@@ -456,6 +459,7 @@ class Vent_Analysis:
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
         '''Creates and saves a montage image of all processed data images'''
+        
         A = self.build4DdataArray()
         _,rr,cc,ss = self.cropToData(A[:,:,:,2],border = 5)
         A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
@@ -469,11 +473,15 @@ class Vent_Analysis:
         A[:,:,:,2] = self.normalize(A[:,:,:,2]) # -- mask
         A[:,:,:,3] = self.normalize(A[:,:,:,3]) # -- N4 xenon
         A[:,:,:,4] = self.normalize(A[:,:,:,4]) # -- defectArray
+        A[:,:,:,5] = self.normalize(A[:,:,:,5]) # -- CI
         mask_border = self.mask_border[np.ix_(rr,cc,ss)]
         rr = A.shape[0]
         cc = A.shape[1]
         ss = A.shape[2]
-        imageArray = np.zeros((rr*5,cc*ss,3))
+        imageArray = np.zeros((rr*6,cc*ss,3))
+        parula_cmap = get_parula_colormap()
+        A[0,0,0,5] = 40
+        A[:,:,:,5][A[:,:,:,5]>40] = 40
         for s in range(ss):
             # -- Blank (for header info)
             imageArray[0:rr,(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]*0
@@ -499,13 +507,22 @@ class Vent_Analysis:
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-A[:,:,s,4]) + A[:,:,s,4]
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]*(1-A[:,:,s,4])
             imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-A[:,:,s,4])
+
+            # -- CI
+            colored_image = parula_cmap(A[:,:,s,5])
+            imageArray[(rr*5):(6*rr),(0+s*cc):(cc + s*cc),0] = colored_image[..., 0] * (A[:,:,s,4] == 1) + A[:,:,s,3] * (A[:,:,s,4] == 0)
+            imageArray[(rr*5):(6*rr),(0+s*cc):(cc + s*cc),1] = colored_image[..., 1] * (A[:,:,s,4] == 1) + A[:,:,s,3] * (A[:,:,s,4] == 0)
+            imageArray[(rr*5):(6*rr),(0+s*cc):(cc + s*cc),2] = colored_image[..., 2] * (A[:,:,s,4] == 1) + A[:,:,s,3] * (A[:,:,s,4] == 0)
+
         #plt.imsave(path, imageArray) # -- matplotlib command to save array as png
         image = Image.fromarray(np.uint8(imageArray*255))  # Convert the numpy array to a PIL image
         draw = ImageDraw.Draw(image)
         text_info = ['','','','']
         text_info[0] = f"Patient: {self.metadata['PatientName']} -- {self.metadata['PatientAge']}-{self.metadata['PatientSex']}"
         text_info[1] = f"StudyDate: {self.metadata['StudyDate']} -- {self.metadata['visit']}/{self.metadata['treatment']}"
-        text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'],1)}"
+        #text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'],1)}"
+        text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'], 1)} -- CI: {self.metadata['CI']}"
+
         for k in range(len(text_info)):
             draw.text((10,10+k*40),text_info[k],fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
         draw.text((np.round(imageArray.shape[1]*.75),10),f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
@@ -615,11 +632,12 @@ class Vent_Analysis:
 # print(f"Calculated CI: {metadata['CI']}")
 
 # # #Some test code
-# pickle_path = 'C:/Users/rptho/Downloads/Mepo0006_211213_visit1_preAlb.pkl'
-# with open(pickle_path, 'rb') as file:
-#     data = pickle.load(file)
-# Vent1 = Vent_Analysis(xenon_array=data[0][:,:,:,1],mask_array=data[0][:,:,:,2])
-# Vent1.proton = data[0][:,:,:,0]
+pickle_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0045 - 240620/Pre_albuterol/VentAnalysis_GMGD_240621/Mepo0045_240620_visit3_preAlb.pkl'
+with open(pickle_path, 'rb') as file:
+   data = pickle.load(file)
+Vent1 = Vent_Analysis(pickle_path = pickle_path)
+#Vent1.proton = data[0][:,:,:,0]
+Vent1.screenShot()
 # Vent1.metadata = data[2]
 # Vent1.raw_K = data[1][:,:,:,0]
 # Vent1.raw_HPvent = data[1][:,:,:,1]
@@ -675,7 +693,7 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 ### ------------------------------------------------------------------------------------------------ ###
 
 if __name__ == "__main__":
-    version = '240516_RPT'
+    version = '240703_GMGD'
     image_box_size = 50
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     
@@ -696,6 +714,14 @@ if __name__ == "__main__":
             return (x - np.min(x)) / (np.max(x) - np.min(x))
 
     def colorBinary(A,B):
+        A = normalize(A)
+        new = np.zeros((A.shape[0],A.shape[1],3))
+        new[:,:,0] = A*(B==0) + B
+        new[:,:,1] = A*(B==0)
+        new[:,:,2] = A*(B==0)
+        return new*255
+
+    def colorparula(A,B):
         A = normalize(A)
         new = np.zeros((A.shape[0],A.shape[1],3))
         new[:,:,0] = A*(B==0) + B
@@ -753,6 +779,7 @@ if __name__ == "__main__":
                     [sg.Image(key='-RAWIMAGE-')],
                     [sg.Image(key='-N4IMAGE-')],
                     [sg.Image(key='-DEFECTIMAGE-')],
+                    [sg.Image(key='-CIIMAGE-')],
                     [sg.Image(key='-TWIXIMAGE-')]]
 
     layout = [
@@ -807,6 +834,15 @@ if __name__ == "__main__":
                 window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
             except:
                 window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
+
+            try:
+                CIMontage = Vent1.array3D_to_montage2D(Vent1.CIarray)
+                CIMontageImage = arrayToImage(colorBinary(N4Montage, CIMontage), (int(image_box_size * N4Montage.shape[1] / N4Montage.shape[0]), image_box_size))
+                window['-CIIMAGE-'].update(data=CIMontageImage)
+            except Exception as e:
+                print(f"Error updating CI image: {e}")
+                window['-CIIMAGE-'].update(data=arrayToImage(np.zeros((3, 3)), (1000, image_box_size)))
+
 
     def updateData():
         if 'Vent1' in globals():
