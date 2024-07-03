@@ -1,5 +1,5 @@
-# PIRL Ventilation Analysis Pipeline, RPT, 3/27/2024, updated 4/3/2024
-This is the Ventilation analysis pipeline for MU data, version 240403_RPT.
+# PIRL Ventilation Analysis Pipeline, RPT, 3/27/2024, updated 7/3/2024 GMG
+This is the Ventilation analysis pipeline for MU data, version 240703_GMGD.
 
 ## Overview
 There's 2 important pieces to this code. First, this contains the *Vent_Analysis* class which contains the processing pipeline for analyzing xenon ventilation data given the xenon image set (a DICOM file) and corresponding segmentation (a folder containing mask DICOMs). Second, the __main__ script employs the PySimpleGUI module to create a graphical user interface [GUI] so the data can be processed easily. Here's what the GUI looks like:
@@ -20,10 +20,10 @@ Then, in powershell navigate to the repository directory and run the command in 
 
 
 ## Things to do in future versions
- - Vent_Analysis class inputs either paths to data or the arrays themselves
- - Output DICOM header info as JSON
+ - Vent_Analysis class inputs either paths to data or the arrays themselves (done)
+ - Output DICOM header info as JSON (done)
  - get more header info (both TWIX and DICOM) into metadata variable
- - CI colormap output in screenshot
+ - CI colormap output in screenshot (done)
  - Multiple VDPs calculated (linear binning, k-means)
  - show histogram?
  - edit mask

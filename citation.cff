@@ -12,9 +12,9 @@ authors:
 - family-names: Parks
   given-names: Isabella
 title: "MU PIRL Ventilation Analysis Pipeline"
-version: 240516_RPT
+version: 240703_GMGD
 identifiers:
   - type: doi
     value: 10.5281/zenodo.1234
-date-released: 2024-05-16
+date-released: 2024-07-03
 repository-code: "https://github.com/thomenr/Vent_Analysis"
