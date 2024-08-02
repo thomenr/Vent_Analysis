@@ -1,5 +1,5 @@
 ## -- PIRL Ventilation Image Analysis Pipeline -- ##
-## -- GMGD, 7/3/2024 -- ##
+## -- GMGD, 8/2/2024 -- ##
 import CI # ------------------------------- for calculateCI
 import json # ----------------------------- For saving header as json file
 import nibabel as nib # ------------------- for Nifti stuffs
@@ -21,7 +21,7 @@ from sklearn.cluster import KMeans # ---------- for kMeans VDP
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from parula_colormap import get_parula_colormap # -for parula colormap in screenshot
-
+from matplotlib.widgets import RectangleSelector
 
 #------------------------------------------------------------------------------------
 # ----------- VENTILATION ANALYSIS CLASS DEFINITION ---------------------------------
@@ -67,7 +67,7 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '240703_GMGD' # - update this when changes are made!! - #
+        self.version = '240802_GMGD' # - update this when changes are made!! - #
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
@@ -332,29 +332,59 @@ class Vent_Analysis:
         print(f'Bias Correction Completed in {np.round(time.time()-start_time,2)} seconds')
         return corrected_HPvent
 
-    
-    def calculate_SNR(self,A,FOVbuffer=20,manualNoise = False):
-        '''Calculates SNR using all voxels in the mask as signal, and all 
-        voxels oustide the mask bounding box as noise. Can also be done manually if desired'''
-        signal = A[self.mask>0]
-        if not manualNoise:
-            noisemask = np.ones(self.mask.shape)
-            FOVbuffer = 20
-            rr = (np.sum(np.sum(self.mask,axis = 2),axis = 1)>0)*(list(range(self.mask.shape[0])))
-            cc = (np.sum(np.sum(self.mask,axis = 0),axis = 1)>0)*(list(range(self.mask.shape[1])))
-            cc = np.arange(np.min(cc[cc>0]),np.max(cc))
-            ss = (np.sum(np.sum(self.mask,axis = 1),axis = 0)>0)*(list(range(self.mask.shape[2])))
-            noisemask[np.ix_(rr,cc,ss)] = 0
-            noisemask[:FOVbuffer,:,:] = 0
-            noisemask[(noisemask.shape[0]-FOVbuffer):,:,:] = 0
-            noise = A[noisemask==1]
+    def manually_select_noise_region(self, slice_2d):
+        '''Interactively select a noise region from a 2D slice of the data'''
+        fig, ax = plt.subplots(1, 1, figsize=(16, 12))
+        ax.imshow(slice_2d, cmap='gray')
+        ax.set_title("Select noise region (drag rectangle)")
+        
+        # Initialize the coordinates for the rectangle
+        self.noise_coords = []
+        
+        def onselect(eclick, erelease):
+            '''Callback function for rectangle selection'''
+            self.noise_coords = [int(eclick.xdata), int(eclick.ydata),
+                                 int(erelease.xdata), int(erelease.ydata)]
+            plt.close(fig)
+        
+        # Create RectangleSelector 
+        rect_selector = RectangleSelector(ax, onselect, 
+                                          useblit=True, button=[1], 
+                                          minspanx=5, minspany=5, 
+                                          spancoords='pixels', interactive=True)
+        plt.show()
+        
+        return self.noise_coords
+
+    def calculate_SNR(self, A, FOVbuffer=20, manualNoise = False):
+        """Calculates SNR using a specified region as noise or automated if desired."""
+        if manualNoise:
+            # Select a slice (e.g., the middle slice) and manually choose the noise region
+            mid_slice = A[:, :, A.shape[2] // 2]
+            noise_coords = self.manually_select_noise_region(mid_slice)
+            
+            if len(noise_coords) == 4:
+                x1, y1, x2, y2 = noise_coords
+                # Extract the noise region only from the chosen slice
+                noise_region = mid_slice[y1:y2, x1:x2]
+                noise = noise_region.flatten()
         else:
-            pass
-            #sub_array = hpg.get_subarray(self.HPvent[:,:,int(self.HPvent.shape[2]/2)])
-            #noise = sub_array['A'].flatten()
-        SNR = (np.mean(signal)-np.mean(noise))/np.std(noise)
+            # Automated noise calculation
+            noisemask = np.ones(self.mask.shape)
+            FOVbuffer=20
+            rr = (np.sum(np.sum(self.mask, axis=2), axis=1) > 0) * (list(range(self.mask.shape[0])))
+            cc = (np.sum(np.sum(self.mask, axis=0), axis=1) > 0) * (list(range(self.mask.shape[1])))
+            cc = np.arange(np.min(cc[cc > 0]), np.max(cc))
+            ss = (np.sum(np.sum(self.mask, axis=1), axis=0) > 0) * (list(range(self.mask.shape[2])))
+            noisemask[np.ix_(rr, cc, ss)] = 0
+            noisemask[:FOVbuffer, :, :] = 0
+            noisemask[(noisemask.shape[0] - FOVbuffer):, :, :] = 0
+            noise = A[noisemask == 1]
+
+        # Calculate signal using the mask
+        signal = A[self.mask > 0]
+        SNR = (np.mean(signal) - np.mean(noise)) / np.std(noise)
         return SNR
-    
 
     def dicom_to_dict(self, elem, include_private=False):
         '''Given a pydicom object (elem) extracts all elements and builds into dictionary'''
@@ -581,6 +611,28 @@ class Vent_Analysis:
         return string
 
 
+    def extract_attributes(attr_dict, parent_key='', sep='_'):
+        """
+        Recursively extract all attributes and subattributes from a nested dictionary and compiles into flat dictionary.
+        
+        Args:
+        - attr_dict (dict): The attribute dictionary to extract from.
+        - parent_key (str): The base key to use for building key names for subattributes.
+        - sep (str): The separator to use between nested keys.
+        
+        Returns:
+        - dict: A flat dictionary with all attributes and subattributes.
+        """
+        items = []
+        for k, v in attr_dict.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                # If the value is a dictionary, recurse
+                items.extend(extract_attributes(v, new_key, sep=sep).items())
+            else:
+                # Otherwise, add the attribute to the items list
+                items.append((new_key, v))
+        return dict(items)
 # - CI test code
 # vox = [3.22,1.98,15]
 # mg = np.meshgrid(np.arange(0,100,vox[0]),np.arange(0,100,vox[1]),np.arange(0,100,vox[2]))
@@ -631,13 +683,24 @@ class Vent_Analysis:
 # metadata['CI'] = CVlist[index95]
 # print(f"Calculated CI: {metadata['CI']}")
 
-# # #Some test code
-pickle_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0045 - 240620/Pre_albuterol/VentAnalysis_GMGD_240621/Mepo0045_240620_visit3_preAlb.pkl'
-with open(pickle_path, 'rb') as file:
-   data = pickle.load(file)
-Vent1 = Vent_Analysis(pickle_path = pickle_path)
+# # # #Some test code
+# pickle_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0045 - 240620/Pre_albuterol/VentAnalysis_GMGD_240621/Mepo0045_240620_visit3_preAlb.pkl'
+# pickle_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/Clinical_LMK_240618_visit1_baseline.pkl'
+# with open(pickle_path, 'rb') as file:
+#    data = pickle.load(file)
+# Vent1 = Vent_Analysis(pickle_path = pickle_path)
+# Vent1.calculate_SNR(Vent1.HPvent, manualNoise = True)
+
+
+# filepath = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/Clinical_LKHL_240718_visit1_Albuterol.pkl'
+# Instantiate the Vent_Analysis class with the .pkl file
+# Vent1 = Vent_Analysis(pickle_path=filepath)
+
+# Calculate SNR using the instance method
+# SNR = Vent1.calculate_SNR(Vent1.HPvent, manualNoise=True)
+# Vent1.metadata['VDP']
 #Vent1.proton = data[0][:,:,:,0]
-Vent1.screenShot()
+#Vent1.screenShot()
 # Vent1.metadata = data[2]
 # Vent1.raw_K = data[1][:,:,:,0]
 # Vent1.raw_HPvent = data[1][:,:,:,1]
@@ -686,8 +749,6 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
             # Otherwise, add the attribute to the items list
             items.append((new_key, v))
     return dict(items)
-
-
 ### ------------------------------------------------------------------------------------------------ ###
 ### ---------------------------------------- MAIN SCRIPT ------------------------------------------- ###
 ### ------------------------------------------------------------------------------------------------ ###
@@ -720,15 +781,15 @@ if __name__ == "__main__":
         new[:,:,1] = A*(B==0)
         new[:,:,2] = A*(B==0)
         return new*255
-
-    def colorparula(A,B):
-        A = normalize(A)
-        new = np.zeros((A.shape[0],A.shape[1],3))
-        new[:,:,0] = A*(B==0) + B
-        new[:,:,1] = A*(B==0)
-        new[:,:,2] = A*(B==0)
-        return new*255
     
+    def colorRaw(A):
+        A = normalize(A)
+        new = np.zeros((A.shape[0], A.shape[1], 3))
+        new[:, :, 0] = A
+        new[:, :, 1] = A
+        new[:, :, 2] = A
+        return new * 255
+
     sg.theme('Default1')
     PIRLlogo = os.path.join(os.getcwd(),'PIRLlogo.png')
     path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Proton:')],[sg.Text('Path to Twix:')]]
@@ -815,7 +876,7 @@ if __name__ == "__main__":
             try:
                 rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
                 mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
-                rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
+                rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border)),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size)
                 window['-RAWIMAGE-'].update(data=rawMontageImage)
             except:
                 window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
@@ -1109,6 +1170,4 @@ if __name__ == "__main__":
  - automatic segmentation using proton (maybe DL this?)
  - Denoise Option
  '''
-
-
 

@@ -6,6 +6,7 @@ from tqdm import tqdm # ------ for progress bar
 import concurrent.futures # -- for parallel processing
 import logging
 import os
+import matplotlib.pyplot as plt
 
 def multi_which(A):
     '''Given a binary 3D array, returns all row/column/slice indices corresponding to 1's'''
@@ -104,6 +105,8 @@ def calculate_CV(defectArrayShape,activeVoxel,defVec,spherePx):
 
     return np.append(activeVoxel,spherePx[ii-1,0])
 
+
+
 def calculate_CI(defectArray,vox=[1,1,1],Rmax=50,type='fast'):
     '''Calculates CVs for the entire defectArray.
         This is a separate function from calculate_CV so that it can use the 
@@ -143,5 +146,3 @@ def calculate_CI(defectArray,vox=[1,1,1],Rmax=50,type='fast'):
         print(f"Time to calculate fast CI array: {np.round((time.time()-start_time)/60,2)} min")
 
     return CI
-
-
