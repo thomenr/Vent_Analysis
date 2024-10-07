@@ -18,7 +18,6 @@ from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFol
 import mapvbvd # -------------------------- for process_Raw
 from sklearn.cluster import KMeans # ---------- for kMeans VDP
 import matplotlib.pyplot as plt
-from parula_colormap import get_parula_colormap # -for parula colormap in screenshot
 
 
 #------------------------------------------------------------------------------------
@@ -65,7 +64,8 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '240703_GMGD' # - update this when changes are made!! - #
+        self.version = '241007'
+        # 241007 - updated screenshot and unpickling methods
         self.proton = ''
         self.N4HPvent = ''
         self.defectArray = ''
@@ -80,6 +80,7 @@ class Vent_Analysis:
                         'PatientAge': '',
                         'PatientBirthDate' : '',
                         'PatientSex': '',
+                        'Disease': '',
                         'StudyDate': '',
                         'SeriesTime': '',
                         'DE': '',
@@ -95,6 +96,7 @@ class Vent_Analysis:
                         'visit': '',
                         'IRB': '',
                         'treatment': '',
+                        'analysisUser': '',
                         'notes': ''
                         # 'TWIXprotocolName': '',
                         # 'TWIXscanDateTime': ''
@@ -207,7 +209,7 @@ class Vent_Analysis:
                 break
             except:
                 if k == 99:
-                    print('Pixel Spacing not in correct place in DICOM header, please enter each dimension...')
+                    print('Pixel Spacing not in correct place in DICOM header, please enter each dimension (reconstruction dimension, not acquisition!)...')
                     self.vox = [float(input()),float(input())]
 
         try:
@@ -216,7 +218,7 @@ class Vent_Analysis:
             print('Slice spacing not in correct position in DICOM header. Please enter manually:')
             self.vox = [float(self.vox[0]),float(self.vox[1]),float(input())]
 
-        self.metadata['LungVolume'] = np.sum(Vent1.mask == 1)*np.prod(Vent1.vox)/1000000
+        self.metadata['LungVolume'] = np.sum(self.mask == 1)*np.prod(np.divide(self.vox,10))/1000 # Lung Volum in Liters (voxel is converted to cm to vox vol is cc's)
 
     def calculateBorder(self,A):
         '''Given a binary array, returns the border of the binary volume (useful for creating a border from the mask for display)'''
@@ -245,13 +247,12 @@ class Vent_Analysis:
             self.defectArray[:,:,k] = medfilt2d((mean_normalized_vent[:,:,k]<thresh)*self.mask[:,:,k])
         self.defectBorder = self.calculateBorder(self.defectArray) == 1
         self.metadata['VDP'] = 100*np.sum(self.defectArray)/np.sum(self.mask)
+        self.metadata['DefectVolume'] = np.sum(self.defectArray == 1)*np.prod(np.divide(self.vox,10))/1000
 
         ## -- Linear Binning [Mu He, 2016] -- ##
         norm95th_vent = np.divide(self.N4HPvent,signal_list[int(len(signal_list)*.99)])
         self.defectArrayLB = ((norm95th_vent<=0.16)*1 + (norm95th_vent>0.16)*(norm95th_vent<=0.34)*2 + (norm95th_vent>0.34)*(norm95th_vent<=0.52)*3 + (norm95th_vent>0.52)*(norm95th_vent<=0.7)*4 + (norm95th_vent>0.7)*(norm95th_vent<=0.88)*5 + (norm95th_vent>0.88)*6)*self.mask
         self.metadata['VDP_lb'] = 100*np.sum((self.defectArrayLB == 1)*1 + (self.defectArrayLB == 2)*1)/np.sum(self.mask)
-
-        self.metadata['DefectVolume'] = np.sum(Vent1.defectArray == 1)*np.prod(Vent1.vox)/1000000
 
         ## -- K-Means [Kirby, 2012] -- ##
         # k = KMeans(signal_list)
@@ -454,9 +455,14 @@ class Vent_Analysis:
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
         '''Creates and saves a montage image of all processed data images'''
+        def normalize(x):
+            if (np.max(x) - np.min(x)) == 0:
+                return x
+            else:
+                return (x - np.min(x)) / (np.max(x) - np.min(x))
         # Load parula colorscale for CI images
         parula = np.load('C:\PIRL\data\parula.np.npy')
-        _, rr,cc,ss = self.cropToData(self.mask)
+        _, rr,cc,ss = self.cropToData(self.mask,border=5)
 
         # - create the arrays to display from cropped indices
         blank = np.zeros_like(self.HPvent[np.ix_(rr,cc,ss)])
@@ -484,18 +490,24 @@ class Vent_Analysis:
         # plt.imshow(IMAGE)
         # plt.show()
         #plt.imsave(path, imageArray) # -- matplotlib command to save array as png
+
         image = Image.fromarray(np.uint8(IMAGE*255))  # Convert the numpy array to a PIL image
         draw = ImageDraw.Draw(image)
-        # for kk in ss: # write the slice number above the arrays
-        #     draw.text(-N4.shape[1]/2 + N4.shape[1]*kk,N4.shape[0]*2,f"{kk+1}",c='white')
-        text_info = ['','','','']
-        text_info[0] = f"Patient: {self.metadata['PatientName']} -- {self.metadata['PatientAge']}-{self.metadata['PatientSex']}"
-        text_info[1] = f"StudyDate: {self.metadata['StudyDate']} -- {self.metadata['visit']}/{self.metadata['treatment']}"
-        text_info[2] = f"FEV1: {self.metadata['FEV1']} -- VDP: {np.round(self.metadata['VDP'], 1)} -- CI: {self.metadata['CI']}"
-
-        for k in range(len(text_info)):
-            draw.text((10,10+k*40),text_info[k],fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
-        draw.text((np.round(IMAGE.shape[1]*.75),10),f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
+        for k in ss:
+            draw.text((k*N4.shape[1] - N4.shape[1]/2,N4.shape[0]*1.8),f"{k+1}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 30))
+        draw.text((10,N4.shape[0]*0.10), f"Patient: {self.metadata['PatientName']} ({self.metadata['PatientAge']}/{self.metadata['PatientSex']})",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
+        draw.text((10,N4.shape[0]*0.40), f"Disease: {self.metadata['Disease']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((10,N4.shape[0]*0.70), f"StudyDate: {self.metadata['StudyDate']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((10,N4.shape[0]*1.00), f"Visit#: {self.metadata['visit']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((10,N4.shape[0]*1.30), f"Treatment: {self.metadata['treatment']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.25),N4.shape[0]*0.10), f"Lung Volume: {self.metadata['LungVolume']} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.25),N4.shape[0]*0.40), f"Defect Volume: {self.metadata['DefectVolume']} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.10), f"DE: {self.metadata['DE']} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.40), f"FEV1: {self.metadata['FEV1']} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.70), f"VDP: {np.round(self.metadata['VDP'], 1)} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*1.00), f"CI: {np.round(self.metadata['CI'])} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.25), f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.50), f"Analyzed by: {self.metadata['analysisUser']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         image.save(path, 'PNG')  # Save the image
         print(f'\033[32mScreenshot saved to {path}\033[37m')
 
@@ -585,7 +597,7 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 ### ------------------------------------------------------------------------------------------------ ###
 
 if __name__ == "__main__":
-    version = '240703_GMGD'
+    version = '241007'
     image_box_size = 50
     ARCHIVE_path = '//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/'
     

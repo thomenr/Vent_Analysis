@@ -12,7 +12,7 @@ authors:
 - family-names: Parks
   given-names: Isabella
 title: "MU PIRL Ventilation Analysis Pipeline"
-version: 240703_GMGD
+version: "241007"
 identifiers:
   - type: doi
     value: 10.5281/zenodo.1234

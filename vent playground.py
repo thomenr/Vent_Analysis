@@ -6,7 +6,10 @@ from Vent_Analysis import Vent_Analysis
 import skimage.util # --------------------- for image montages
 
 Vent2 = Vent_Analysis(pickle_path="C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_241006/Mepo0039_240301.pkl")
-A = Vent2.HPvent
+Vent2.metadata['analysisUser'] = 'RPT'
+Vent2.metadata['Disease'] = 'asthma'
+Vent2.screenShot()
+
 
 def normalize(x):
     if (np.max(x) - np.min(x)) == 0:
@@ -51,16 +54,15 @@ def get_CI_colorArrays(CI):
     CIred = parula[]
 
 parula = np.load('C:\PIRL\data\parula.np.npy')
-
 _, rr,cc,ss = Vent2.cropToData(Vent2.mask)
 
-blank = np.zeros_like(Vent2.HPvent[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]])
-proton = normalize(Vent2.proton[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]])
-HP = normalize(Vent2.HPvent[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]])
-N4 = normalize(Vent2.N4HPvent[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]])
-border = normalize(Vent2.mask_border[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]])>0
-defArr = Vent2.defectArray[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]]>0
-CI = Vent2.CIarray[rr[0]:rr[-1],cc[0]:cc[-1],ss[0]:ss[-1]]
+blank = np.zeros_like(Vent2.HPvent[np.ix_(rr,cc,ss)])
+proton = normalize(Vent2.proton[np.ix_(rr,cc,ss)])
+HP = normalize(Vent2.HPvent[np.ix_(rr,cc,ss)])
+N4 = normalize(Vent2.N4HPvent[np.ix_(rr,cc,ss)])
+border = normalize(Vent2.mask_border[np.ix_(rr,cc,ss)])>0
+defArr = Vent2.defectArray[np.ix_(rr,cc,ss)]>0
+CI = Vent2.CIarray[np.ix_(rr,cc,ss)]
 
 CIred = np.array([[[parula[int(CI[r,c,s]*64/40),0] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
 CIgreen = np.array([[[parula[int(CI[r,c,s]*64/40),1] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
