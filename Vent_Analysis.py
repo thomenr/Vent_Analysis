@@ -424,9 +424,6 @@ class Vent_Analysis:
                     ds.NumberOfFrames = 1
                     ds.save_as(os.path.join(dicom_path, f"dicom_{i}.dcm"))
     
-    def array3D_to_montage2D(self,A):
-        return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
-
     def cropToData(self, A, border=0,borderSlices=False):
         '''Given a 3D mask array, crops rows,cols,slices to only those with signal (useful for creating montage slides)'''
         # Calculate the indices for non-zero slices, rows, and columns
@@ -457,64 +454,40 @@ class Vent_Analysis:
 
     def screenShot(self, path = 'C:/PIRL/data/screenShotTest.png', normalize95 = False):
         '''Creates and saves a montage image of all processed data images'''
-        A = self.build4DdataArray()
-        _,rr,cc,ss = self.cropToData(A[:,:,:,2],border = 5)
-        A = A[np.ix_(rr,cc,ss,np.arange(A.shape[3]))]
-        A[:,:,:,0] = self.normalize(A[:,:,:,0]) # -- proton
-        if normalize95:
-            signalList = A[:,:,:,1].flatten()
-            signalList.sort()
-            A[:,:,:,1] = np.divide(A[:,:,:,1],signalList[int(len(signalList)*0.99)])
-            A[:,:,:,1][A[:,:,:,1]>1] = 1
-        A[:,:,:,1] = self.normalize(A[:,:,:,1]) # -- raw xenon
-        A[:,:,:,2] = self.normalize(A[:,:,:,2]) # -- mask
-        A[:,:,:,3] = self.normalize(A[:,:,:,3]) # -- N4 xenon
-        A[:,:,:,4] = self.normalize(A[:,:,:,4]) # -- defectArray
-        A[:,:,:,5] = A[:,:,:,5]/40 # -- CI (40 is the max display value for CI maps - yellow in parula)
-        mask_border = self.mask_border[np.ix_(rr,cc,ss)]
-        rr = A.shape[0]
-        cc = A.shape[1]
-        ss = A.shape[2]
-        imageArray = np.zeros((rr*6,cc*ss,3))
-        parula_cmap = get_parula_colormap()
-        #maxCIforDisplay = 0.5
-        #A[0,0,0,5] = maxCIforDisplay
-        #A[:,:,:,5][A[:,:,:,5]>maxCIforDisplay] = maxCIforDisplay
-        colored_image = parula_cmap(A[:,:,:,5])
-        for s in range(ss):
-            # -- Blank (for header info)
-            imageArray[0:rr,(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]*0
-            imageArray[0:rr,(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]*0
-            imageArray[0:rr,(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]*0
+        # Load parula colorscale for CI images
+        parula = np.load('C:\PIRL\data\parula.np.npy')
+        _, rr,cc,ss = self.cropToData(self.mask)
 
-            # -- proton
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,0]
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,0]
-            imageArray[(rr):(2*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,0]
+        # - create the arrays to display from cropped indices
+        blank = np.zeros_like(self.HPvent[np.ix_(rr,cc,ss)])
+        proton = normalize(self.proton[np.ix_(rr,cc,ss)])
+        HP = normalize(self.HPvent[np.ix_(rr,cc,ss)])
+        N4 = normalize(self.N4HPvent[np.ix_(rr,cc,ss)])
+        border = normalize(self.mask_border[np.ix_(rr,cc,ss)])>0
+        defArr = self.defectArray[np.ix_(rr,cc,ss)]>0
+        CI = self.CIarray[np.ix_(rr,cc,ss)]
 
-            # -- raw xenon
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,1]
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,1]
-            imageArray[(rr*2):(3*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,1]
-            
-            # -- N4 xenon w mask border
-            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-mask_border[:,:,s])
-            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
-            imageArray[(rr*3):(4*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-mask_border[:,:,s]) + mask_border[:,:,s]
+        # Create CI color arrays using the parula colorscale
+        CIred = np.array([[[parula[int(CI[r,c,s]*64/40),0] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
+        CIgreen = np.array([[[parula[int(CI[r,c,s]*64/40),1] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
+        CIblue = np.array([[[parula[int(CI[r,c,s]*64/40),2] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
 
-            # -- N4 xenon w defects
-            imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),0] = A[:,:,s,3]*(1-A[:,:,s,4]) + A[:,:,s,4]
-            imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),1] = A[:,:,s,3]*(1-A[:,:,s,4])
-            imageArray[(rr*4):(5*rr),(0+s*cc):(cc + s*cc),2] = A[:,:,s,3]*(1-A[:,:,s,4])
-
-            # -- CI
-            imageArray[(rr*5):(6*rr),(0+s*cc):(cc + s*cc),0] = colored_image[:,:,s, 0] * (A[:,:,s,4] == 1) + A[:,:,s,3] * (A[:,:,s,4] == 0)
-            imageArray[(rr*5):(6*rr),(0+s*cc):(cc + s*cc),1] = colored_image[:,:,s, 1] * (A[:,:,s,4] == 1) + A[:,:,s,3] * (A[:,:,s,4] == 0)
-            imageArray[(rr*5):(6*rr),(0+s*cc):(cc + s*cc),2] = colored_image[:,:,s, 2] * (A[:,:,s,4] == 1) + A[:,:,s,3] * (A[:,:,s,4] == 0)
-
+        # The full image is 3 separate 3D montages for each of R G and B
+        RED3D = np.concatenate((blank, blank, proton, HP, N4*(~border) + 0*border, N4*(~defArr) + defArr, N4*(CI==0) + CIred*(CI>0)),axis=2)
+        GREEN3D = np.concatenate((blank, blank, proton, HP, N4*(~border) + 1*border, N4*(~defArr), N4*(CI==0) +CIgreen*(CI>0)),axis=2)
+        BLUE3D = np.concatenate((blank, blank, proton, HP, N4*(~border) + 1*border, N4*(~defArr), N4*(CI==0) +CIblue*(CI>0)),axis=2)
+        # Cast the 3D arrays to 2D montages (notice how easy this is with skimage..)
+        REDmontage = skimage.util.montage([RED3D[:,:,k] for k in range(0,RED3D.shape[2])], grid_shape = (7,N4.shape[2]), padding_width=0, fill=0)
+        GREENmontage = skimage.util.montage([GREEN3D[:,:,k] for k in range(0,GREEN3D.shape[2])], grid_shape = (7,N4.shape[2]), padding_width=0, fill=0)
+        BLUEmontage = skimage.util.montage([BLUE3D[:,:,k] for k in range(0,BLUE3D.shape[2])], grid_shape = (7,N4.shape[2]), padding_width=0, fill=0)
+        IMAGE = np.stack((REDmontage,GREENmontage,BLUEmontage),axis=2)
+        # plt.imshow(IMAGE)
+        # plt.show()
         #plt.imsave(path, imageArray) # -- matplotlib command to save array as png
-        image = Image.fromarray(np.uint8(imageArray*255))  # Convert the numpy array to a PIL image
+        image = Image.fromarray(np.uint8(IMAGE*255))  # Convert the numpy array to a PIL image
         draw = ImageDraw.Draw(image)
+        # for kk in ss: # write the slice number above the arrays
+        #     draw.text(-N4.shape[1]/2 + N4.shape[1]*kk,N4.shape[0]*2,f"{kk+1}",c='white')
         text_info = ['','','','']
         text_info[0] = f"Patient: {self.metadata['PatientName']} -- {self.metadata['PatientAge']}-{self.metadata['PatientSex']}"
         text_info[1] = f"StudyDate: {self.metadata['StudyDate']} -- {self.metadata['visit']}/{self.metadata['treatment']}"
@@ -522,7 +495,7 @@ class Vent_Analysis:
 
         for k in range(len(text_info)):
             draw.text((10,10+k*40),text_info[k],fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
-        draw.text((np.round(imageArray.shape[1]*.75),10),f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
+        draw.text((np.round(IMAGE.shape[1]*.75),10),f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 40))
         image.save(path, 'PNG')  # Save the image
         print(f'\033[32mScreenshot saved to {path}\033[37m')
 
@@ -546,9 +519,15 @@ class Vent_Analysis:
             self.raw_HPvent[:,:,k] = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self.raw_K[:,:,k])))
         self.raw_HPvent = np.transpose(self.raw_HPvent,(1,0,2))[:,::-1,:]
 
-    def pickleMe(self, pickle_path):
-        '''Uses dictionary comprehension to create a dictionary of all class attriutes, then saves as pickle'''
-        pickle_dict = {attr: getattr(self, attr) for attr in vars(self)}
+    def pickleMe(self, pickle_path='C:/PIRL/data/VentPickle.pkl'):
+        '''Uses dictionary comprehension to create a dictionary of all class attributes, then saves as pickle'''
+        pickle_dict = {}
+        for attr in vars(self):
+            try:
+                pickle.dumps(getattr(self, attr))
+                pickle_dict[attr] = getattr(self, attr)
+            except (pickle.PicklingError, AttributeError, TypeError):
+                print(f"\033[31mSkipping non-picklable attribute: {attr}\033[37m")
         with open(pickle_path, 'wb') as file:
             pickle.dump(pickle_dict, file)
         print(f'\033[32mPickled dictionary saved to {pickle_path}\033[37m')
@@ -642,6 +621,9 @@ if __name__ == "__main__":
         new[:,:,2] = A*(B==0)
         return new*255
     
+    def array3D_to_montage2D(A):
+        return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
+    
     sg.theme('Default1')
     PIRLlogo = os.path.join(os.getcwd(),'PIRLlogo.png')
     path_label_column = [[sg.Text('Path to Ventilation DICOM:')],[sg.Text('Path to Mask Folder:')],[sg.Text('Path to Proton:')],[sg.Text('Path to Twix:')]]
@@ -719,37 +701,37 @@ if __name__ == "__main__":
     def updateImages():
             window['-TWIXIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
             try:
-                protonMontage = Vent1.array3D_to_montage2D(Vent1.proton)
+                protonMontage = array3D_to_montage2D(Vent1.proton)
                 protonMontageImage = arrayToImage(255*normalize(protonMontage),(int(image_box_size*protonMontage.shape[1]/protonMontage.shape[0]),image_box_size))
                 window['-PROTONIMAGE-'].update(data=protonMontageImage)
             except:
                 window['-PROTONIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
 
             try:
-                rawMontage = Vent1.array3D_to_montage2D(Vent1.HPvent)
-                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
+                rawMontage = array3D_to_montage2D(Vent1.HPvent)
+                mask_border = array3D_to_montage2D(Vent1.mask_border)
                 rawMontageImage = arrayToImage(colorBinary(rawMontage,mask_border),(int(image_box_size*rawMontage.shape[1]/rawMontage.shape[0]),image_box_size))
                 window['-RAWIMAGE-'].update(data=rawMontageImage)
             except:
                 window['-RAWIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
 
             try:
-                N4Montage = Vent1.array3D_to_montage2D(Vent1.N4HPvent)
-                mask_border = Vent1.array3D_to_montage2D(Vent1.mask_border)
+                N4Montage = array3D_to_montage2D(Vent1.N4HPvent)
+                mask_border = array3D_to_montage2D(Vent1.mask_border)
                 N4MontageImage = arrayToImage(colorBinary(N4Montage,mask_border),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
                 window['-N4IMAGE-'].update(data=N4MontageImage)
             except:
                 window['-N4IMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
 
             try:
-                DefectMontage = Vent1.array3D_to_montage2D(Vent1.defectArray)
+                DefectMontage = array3D_to_montage2D(Vent1.defectArray)
                 DefectMontageImage = arrayToImage(colorBinary(N4Montage,DefectMontage),(int(image_box_size*N4Montage.shape[1]/N4Montage.shape[0]),image_box_size))
                 window['-DEFECTIMAGE-'].update(data=DefectMontageImage)
             except:
                 window['-DEFECTIMAGE-'].update(data=arrayToImage(np.zeros((3,3)),(1000,image_box_size)))
 
             try:
-                CIMontage = Vent1.array3D_to_montage2D(Vent1.CIarray)
+                CIMontage = array3D_to_montage2D(Vent1.CIarray)
                 CIMontageImage = arrayToImage(colorBinary(N4Montage, CIMontage), (int(image_box_size * N4Montage.shape[1] / N4Montage.shape[0]), image_box_size))
                 window['-CIIMAGE-'].update(data=CIMontageImage)
             except Exception as e:
@@ -833,7 +815,7 @@ if __name__ == "__main__":
 
 ## --------------- Load Pickle ------------------- ##       
         elif event == ('-LOADPICKLE-'):
-            pickle_path = sg.popup_get_text('Enter Pickle Path: ',default_text='//umh.edu/data/Radiology/Xenon_Studies/Studies/Archive/Mepo0029_231030_visit1_preAlb.pkl')
+            pickle_path = sg.popup_get_text('Enter Pickle Path: ',default_text="C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_241006/Mepo0039_240301.pkl")
             Vent1 = Vent_Analysis(pickle_path=pickle_path)
             window['-STATUS-'].update("Vent_Analysis pickle loaded",text_color='green')
             window['-INITIALIZE-'].update(button_color = 'green')
@@ -903,7 +885,7 @@ if __name__ == "__main__":
             #     Vent1.process_RAW(TWIX_path)
             #     window['-STATUS-'].update("TWIX Processed successfully",text_color='green')
             #     window['-RUNTWIX-'].update(button_color = 'green')
-            #     TwixMontage = Vent1.array3D_to_montage2D(Vent1.raw_HPvent)
+            #     TwixMontage = array3D_to_montage2D(Vent1.raw_HPvent)
             #     TwixMontageImage = arrayToImage(255*normalize(TwixMontage),(int(image_box_size*TwixMontage.shape[1]/TwixMontage.shape[0]),image_box_size))
             #     window['-TWIXIMAGE-'].update(data=TwixMontageImage)
             #     window['twixdate'].update(f'Twix Date: {Vent1.scanDateTime}')
