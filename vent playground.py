@@ -48,37 +48,75 @@ def makeMontage(A,nRows = None,nCols = None,sameScale = False):
 def array3D_to_montage2D(A):
     return skimage.util.montage([abs(A[:,:,k]) for k in range(0,A.shape[2])], grid_shape = (1,A.shape[2]), padding_width=0, fill=0)
 
-def get_CI_colorArrays(CI):
-    CI[CI>40] = 40
-    parula = np.load('C:\PIRL\data\parula.np.npy')
-    CIred = parula[]
 
-parula = np.load('C:\PIRL\data\parula.np.npy')
-_, rr,cc,ss = Vent2.cropToData(Vent2.mask)
-
-blank = np.zeros_like(Vent2.HPvent[np.ix_(rr,cc,ss)])
-proton = normalize(Vent2.proton[np.ix_(rr,cc,ss)])
-HP = normalize(Vent2.HPvent[np.ix_(rr,cc,ss)])
-N4 = normalize(Vent2.N4HPvent[np.ix_(rr,cc,ss)])
-border = normalize(Vent2.mask_border[np.ix_(rr,cc,ss)])>0
-defArr = Vent2.defectArray[np.ix_(rr,cc,ss)]>0
-CI = Vent2.CIarray[np.ix_(rr,cc,ss)]
-
-CIred = np.array([[[parula[int(CI[r,c,s]*64/40),0] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
-CIgreen = np.array([[[parula[int(CI[r,c,s]*64/40),1] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
-CIblue = np.array([[[parula[int(CI[r,c,s]*64/40),2] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
-
-RED3D = np.concatenate((blank, blank, proton, HP, N4*(~border) + 0*border, N4*(~defArr) + defArr, N4*(CI==0) + CIred*(CI>0)),axis=2)
-GREEN3D = np.concatenate((blank, blank, proton, HP, N4*(~border) + 1*border, N4*(~defArr), N4*(CI==0) +CIgreen*(CI>0)),axis=2)
-BLUE3D = np.concatenate((blank, blank, proton, HP, N4*(~border) + 1*border, N4*(~defArr), N4*(CI==0) +CIblue*(CI>0)),axis=2)
-
-REDmontage = skimage.util.montage([RED3D[:,:,k] for k in range(0,RED3D.shape[2])], grid_shape = (7,N4.shape[2]), padding_width=0, fill=0)
-GREENmontage = skimage.util.montage([GREEN3D[:,:,k] for k in range(0,GREEN3D.shape[2])], grid_shape = (7,N4.shape[2]), padding_width=0, fill=0)
-BLUEmontage = skimage.util.montage([BLUE3D[:,:,k] for k in range(0,BLUE3D.shape[2])], grid_shape = (7,N4.shape[2]), padding_width=0, fill=0)
-IMAGE = np.stack((REDmontage,GREENmontage,BLUEmontage),axis=2)
-
-plt.imshow(IMAGE)
-for kk in ss:
-    plt.text(-N4.shape[1]/2 + N4.shape[1]*kk,N4.shape[0]*2,f"{kk+1}",c='white')
+from scipy.signal import medfilt2d # ------ for calculateVDP
+plt.imshow(makeMontage(medfilt2d(Vent2.proton)))
+plt.imshow(makeMontage(Vent2.proton))
 plt.show()
 
+RED = makeMontage(1*(Vent2.proton<(0.5*np.mean(Vent2.proton))))
+BLUE = makeMontage(Vent2.proton)
+GREEN = makeMontage(Vent2.mask)
+
+plt.imshow(medfilt2d(RED,kernel_size = 5),cmap='gray')
+plt.show()
+
+plt.imshow(np.stack((RED,GREEN,BLUE),axis=2),cmap='gray')
+plt.show()
+
+
+
+import pywt
+data = Vent2.mask[:,:,10]
+coeffs = pywt.dwt2(data, 'haar')  # 'haar' is a common wavelet, you can try others
+
+# The output coeffs is a tuple containing (approximation coefficients, (horizontal, vertical, diagonal coefficients))
+cA, (cH, cV, cD) = coeffs
+
+# Display the results
+fig, axs = plt.subplots(2, 2, figsize=(8, 8))
+axs[0, 0].imshow(cA, cmap='gray')
+axs[0, 0].set_title('Approximation Coefficients')
+axs[0, 1].imshow(cH, cmap='gray')
+axs[0, 1].set_title('Horizontal Detail Coefficients')
+axs[1, 0].imshow(cV, cmap='gray')
+axs[1, 0].set_title('Vertical Detail Coefficients')
+axs[1, 1].imshow(cD, cmap='gray')
+axs[1, 1].set_title('Diagonal Detail Coefficients')
+
+plt.tight_layout()
+plt.show()
+
+
+threshold = 0.00000001
+
+# Apply thresholding
+def apply_threshold(arr, threshold):
+    return np.where(np.abs(arr) > threshold, arr, 0)
+
+# Apply threshold to the detail coefficients
+cH_thresh = apply_threshold(cH, threshold)
+cV_thresh = apply_threshold(cV, threshold)
+cD_thresh = apply_threshold(cD, threshold)
+
+# Reconstruct the data using the inverse 2D wavelet transform
+filtered_coeffs = (cA, (cH_thresh, cV_thresh, cD_thresh))
+reconstructed_data = pywt.idwt2(filtered_coeffs, 'haar')
+
+# Plot the original, thresholded coefficients, and the reconstructed data
+fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+
+# Original data
+axs[0].imshow(data, cmap='gray')
+axs[0].set_title('Original Data')
+# Reconstructed data after thresholding
+axs[1].imshow(reconstructed_data, cmap='gray')
+axs[1].set_title('Reconstructed Data')
+
+# Display the difference (error) between original and reconstructed data
+error = data - reconstructed_data
+axs[2].imshow(error, cmap='gray')
+axs[2].set_title('Difference (Error)')
+
+plt.tight_layout()
+plt.show()
