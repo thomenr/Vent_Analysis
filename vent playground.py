@@ -5,10 +5,13 @@ os.chdir('c:/vent_analysis/')
 from Vent_Analysis import Vent_Analysis
 import skimage.util # --------------------- for image montages
 
-Vent2 = Vent_Analysis(pickle_path="C:/PIRL/data/MEPOXE0039/VentAnalysis_RPT_241006/Mepo0039_240301.pkl")
+Vent2 = Vent_Analysis(pickle_path="//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0035 - 240131/Pre Alb/VentAnalysis_RPT_241009/Mepo0035_240131_visit1_preAlb.pkl")
+Vent2.screenShot(path = "//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0035 - 240131/Pre Alb/VentAnalysis_RPT_241009/Mepo0035_240131_visit1_preAlb.png")
 Vent2.metadata['analysisUser'] = 'RPT'
 Vent2.metadata['Disease'] = 'asthma'
 Vent2.screenShot()
+Vent2.proton_ds, Vent2.proton = Vent2.openSingleDICOM(dicom_path = "//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0035 - 240131/Post Alb/DICOM/24013117/11320000/35403684")
+Vent2.pickleMe(pickle_path="//umh.edu/data/Radiology/Xenon_Studies/Studies/MEPO/MEPO_Studies/MEPOXE0035 - 240131/Pre Alb/VentAnalysis_RPT_241009/Mepo0035_240131_visit1_preAlb.pkl")
 
 
 def normalize(x):

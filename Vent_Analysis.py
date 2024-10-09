@@ -1,5 +1,4 @@
 ## -- PIRL Ventilation Image Analysis Pipeline -- ##
-## -- GMGD, 7/3/2024 -- ##
 import CI # ------------------------------- for calculateCI
 import json # ----------------------------- For saving header as json file
 import nibabel as nib # ------------------- for Nifti stuffs
@@ -13,6 +12,7 @@ import SimpleITK as sitk # ---------------- for N4 Bias Correection
 import skimage.util # --------------------- for image montages
 from sys import getsizeof # --------------- To report twix object size
 import time # ----------------------------- for calculateVDP
+import datetime # ------------------------- To get the analysis date
 import tkinter as tk # -------------------- GUI stuffs
 from tkinter import filedialog # ---------- for openSingleDICOM and openDICOMFolder
 import mapvbvd # -------------------------- for process_Raw
@@ -162,6 +162,8 @@ class Vent_Analysis:
 
         if pickle_dict is not None:
             self.unPickleMe(pickle_dict)
+        
+        self.metadata['LungVolume'] = np.sum(self.mask == 1)*np.prod(np.divide(self.vox,10))/1000
 
         
     def openSingleDICOM(self,dicom_path):        
@@ -500,14 +502,14 @@ class Vent_Analysis:
         draw.text((10,N4.shape[0]*0.70), f"StudyDate: {self.metadata['StudyDate']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((10,N4.shape[0]*1.00), f"Visit#: {self.metadata['visit']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((10,N4.shape[0]*1.30), f"Treatment: {self.metadata['treatment']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
-        draw.text((np.round(IMAGE.shape[1]*.25),N4.shape[0]*0.10), f"Lung Volume: {self.metadata['LungVolume']} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
-        draw.text((np.round(IMAGE.shape[1]*.25),N4.shape[0]*0.40), f"Defect Volume: {self.metadata['DefectVolume']} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.25),N4.shape[0]*0.10), f"Lung Volume: {np.round(self.metadata['LungVolume']*1000)} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.25),N4.shape[0]*0.40), f"Defect Volume: {np.round(self.metadata['DefectVolume']*1000)} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.10), f"DE: {self.metadata['DE']} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.40), f"FEV1: {self.metadata['FEV1']} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.70), f"VDP: {np.round(self.metadata['VDP'], 1)} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*1.00), f"CI: {np.round(self.metadata['CI'])} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.25), f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
-        draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.50), f"Analyzed by: {self.metadata['analysisUser']}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.50), f"Analyzed by: {self.metadata['analysisUser']} on {str(datetime.datetime.today()).split()[0]}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         image.save(path, 'PNG')  # Save the image
         print(f'\033[32mScreenshot saved to {path}\033[37m')
 
