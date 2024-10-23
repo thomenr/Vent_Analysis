@@ -64,7 +64,7 @@ class Vent_Analysis:
                  pickle_dict = None,
                  pickle_path = None):
         
-        self.version = '241007'
+        self.version = '241007_vent'
         # 241007 - updated screenshot and unpickling methods
         self.proton = ''
         self.N4HPvent = ''
