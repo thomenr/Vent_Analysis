@@ -473,7 +473,10 @@ class Vent_Analysis:
         N4 = normalize(self.N4HPvent[np.ix_(rr,cc,ss)])
         border = normalize(self.mask_border[np.ix_(rr,cc,ss)])>0
         defArr = self.defectArray[np.ix_(rr,cc,ss)]>0
-        CI = self.CIarray[np.ix_(rr,cc,ss)]
+        try:            
+            CI = self.CIarray[np.ix_(rr,cc,ss)]
+        except:
+            CI = blank
 
         # Create CI color arrays using the parula colorscale
         CIred = np.array([[[parula[int(CI[r,c,s]*64/40),0] for s in range(CI.shape[2])] for c in range(CI.shape[1])] for r in range(CI.shape[0])])
@@ -507,7 +510,10 @@ class Vent_Analysis:
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.10), f"DE: {self.metadata['DE']} mL",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.40), f"FEV1: {self.metadata['FEV1']} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*0.70), f"VDP: {np.round(self.metadata['VDP'], 1)} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
-        draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*1.00), f"CI: {np.round(self.metadata['CI'])} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        try:
+            draw.text((np.round(IMAGE.shape[1]*.50),N4.shape[0]*1.00), f"CI: {np.round(self.metadata['CI'])} %",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
+        except:
+            pass
         draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.25), f'Analysis Version: {self.version}',fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         draw.text((np.round(IMAGE.shape[1]*.75),N4.shape[0]*0.50), f"Analyzed by: {self.metadata['analysisUser']} on {str(datetime.datetime.today()).split()[0]}",fill = (255,255,255), font = ImageFont.truetype('arial.ttf',size = 35))
         image.save(path, 'PNG')  # Save the image
@@ -592,6 +598,17 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
             # Otherwise, add the attribute to the items list
             items.append((new_key, v))
     return dict(items)
+
+
+
+## -- Test Code -- ##
+DICOM_path = 'C:/PIRL/data/MEPOXE0039/48522586xe'
+MASK_path = 'C:/PIRL/data/MEPOXE0039/Mask'
+PROTON_path = 'C:/PIRL/data/MEPOXE0039/48522597prot'
+Vent1 = Vent_Analysis(DICOM_path,MASK_path,PROTON_path)
+Vent1.calculate_VDP()
+#Vent1.calculate_CI()
+Vent1.screenShot()
 
 
 ### ------------------------------------------------------------------------------------------------ ###
