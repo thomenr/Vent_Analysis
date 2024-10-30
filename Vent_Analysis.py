@@ -601,14 +601,14 @@ def extract_attributes(attr_dict, parent_key='', sep='_'):
 
 
 
-## -- Test Code -- ##
-DICOM_path = 'C:/PIRL/data/MEPOXE0039/48522586xe'
-MASK_path = 'C:/PIRL/data/MEPOXE0039/Mask'
-PROTON_path = 'C:/PIRL/data/MEPOXE0039/48522597prot'
-Vent1 = Vent_Analysis(DICOM_path,MASK_path,PROTON_path)
-Vent1.calculate_VDP()
-#Vent1.calculate_CI()
-Vent1.screenShot()
+# ## -- Test Code -- ##
+# DICOM_path = 'C:/PIRL/data/MEPOXE0039/48522586xe'
+# MASK_path = 'C:/PIRL/data/MEPOXE0039/Mask'
+# PROTON_path = 'C:/PIRL/data/MEPOXE0039/48522597prot'
+# Vent1 = Vent_Analysis(DICOM_path,MASK_path,PROTON_path)
+# Vent1.calculate_VDP()
+# #Vent1.calculate_CI()
+# Vent1.screenShot()
 
 
 ### ------------------------------------------------------------------------------------------------ ###
